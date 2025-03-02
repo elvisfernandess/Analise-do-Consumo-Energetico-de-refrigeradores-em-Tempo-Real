@@ -50,14 +50,14 @@ horario_transicao_rendimento = None #variável global que armazena o horário qu
 inicio_periodo = datetime.now() #variavel global que armazena 
 arquivo_atual = None
 
-soma_potencia = 0.0
-numero_amostras = 0
-ultima_posicao = 0
-potencia_media = 0
-consumo_mensal_estimado = 0
-consumo_mensal_estimado_kwh = 0
-energia_acumulada = 0.0  # 🔹 Corrigido: agora está inicializado
-ultima_leitura_tempo = None  # Inicializa a variável corretamente
+soma_potencia = 0.0 #variavel global de inicialização para somar a potência na tela de consumo energetico
+numero_amostras = 0 #variavel global de inicialização para incrementar as amostras na tela de consumo energetico
+ultima_posicao = 0 #variavel global de inicialização para por armazenar a ultima posição no arquivo .xlsx
+potencia_media = 0 #variavel global de inicialização para porder calcular a potência no arquivo .xlsx
+consumo_mensal_estimado = 0 #variavel global de inicialização para porder calcular o consumo mensal estimado
+consumo_mensal_estimado_kwh = 0 #variavel global de inicialização para porder calcular o consumo mensal estimado em quilo-watt-hora
+energia_acumulada = 0.0  #variavel global de inicialização para porder calcular a energia acumulada
+ultima_leitura_tempo = None  # variavel global para poder inicializar a ultima leitura a ser lida no arquivo .xlsx
 
 
 contador_id = 1  # Variável global para gerar IDs únicos
@@ -65,32 +65,31 @@ dados_buffer = []  # Armazena as leituras temporariamente
 
 # Conectar ao Arduino via porta serial
 try:
-    arduino = serial.Serial(porta_serial, baud_rate, timeout=1)
-    print(f"Conectado à porta {porta_serial}")
+    arduino = serial.Serial(porta_serial, baud_rate, timeout=1) #passando como parâmetro a porta do arduino, a frequencia do baud rate e o tempo de envio de dados
+    print(f"Conectado à porta {porta_serial}") #mensagem de conexão positiva no terminal python
 except serial.SerialException as e:
-    print(f"Erro de conexão: {e}")
-    exit()
+    print(f"Erro de conexão: {e}") #mensagem de erro de comunicação no terminal python
+    exit() #fecha o software
 
-# Variáveis para armazenar os dados
-valores_potencia = []
-valores_temperatura = []
-valores_temperatura2 = []
-#valores_energia = []
-valores_tensao = []
-valores_corrente = []
-valores_potencia_aparente = []
-valores_potencia_reativa = []
-valores_sensor_porta = []
-horarios = []
-refrigeradores = []
-transicoes_alertas_consumo = []
-transicoes_alertas_rendimento = []
-transicoes_alertas_temp_sensor_1 = []
-transicoes_alertas_temp_sensor_2 = []
-transicoes_alertas_sensor_porta = []
-horarios_pausa = []
-horarios_continuacao = []
-horarios_atualizacao = []
+# Variáveis para armazenar os dados vindos via serial e poder calcular a media movel
+valores_potencia = [] # Lista para armazenar os valores de potência do sensor de energia
+valores_temperatura = [] # Lista para armazenar os valores de temperatura do sensor de temperatura 1
+valores_temperatura2 = [] # Lista para armazenar os valores de temperatura do sensor de temperatura 2
+valores_tensao = [] # Lista para armazenar os valores de tensao do sensor de energia
+valores_corrente = [] # Lista para armazenar os valores de corrente do sensor de energia
+valores_potencia_aparente = [] # Lista para armazenar os valores calcular da potencia aparente
+valores_potencia_reativa = [] # Lista para armazenar os valores calcular da potencia reativa
+valores_sensor_porta = [] # Lista para armazenar os valores 0 ou 1 do sensor de porta
+horarios = [] # Lista para armazenar os valores dos horarios
+refrigeradores = [] # Lista para armazenar os refrigeradores cadastrados
+transicoes_alertas_consumo = [] # Lista para armazenar as transições de alertas do consumo
+transicoes_alertas_rendimento = [] # Lista para armazenar as transições de alertas do rendimento
+transicoes_alertas_temp_sensor_1 = [] # Lista para armazenar as transições de alertas de temperatura do sensor 1
+transicoes_alertas_temp_sensor_2 = [] # Lista para armazenar as transições de alertas de temperatura do sensor 2
+transicoes_alertas_sensor_porta = [] # Lista para armazenar as transições de alertas do sensor de porta
+horarios_pausa = []  # Lista para armazenar as transições de horarios do botão pausa
+horarios_continuacao = [] # Lista para armazenar as transições de horarios do botão continuar
+horarios_atualizacao = [] # Lista para armazenar as transições de horarios do botão atualizar
 
 # Definir o tamanho da janela para a média móvel
 tamanho_janela = 10  # Número de leituras para calcular a média móvel
@@ -104,141 +103,142 @@ def obter_nome_arquivo():
 # Verifica se é necessário criar um novo arquivo
 def verificar_novo_arquivo():
     """Verifica se é necessário criar um novo arquivo."""
-    global inicio_periodo, arquivo_atual
+    global inicio_periodo, arquivo_atual #variaveis globais que podem ser acessadas dentro ou fora dessa função
 
-    agora = datetime.now()
-    if agora - inicio_periodo >= timedelta(minutes=1) or arquivo_atual is None:
-        inicio_periodo = agora
-        arquivo_atual = obter_nome_arquivo()
-        print(f"Usando arquivo: {arquivo_atual}")
+    agora = datetime.now() #armazena a data e o horario a partir do objeto
+    if agora - inicio_periodo >= timedelta(minutes=1) or arquivo_atual is None: 
+        inicio_periodo = agora #atualiza o horario atual
+        arquivo_atual = obter_nome_arquivo() #gera um novo arquivo baseado na data e hora
+        #print(f"Usando arquivo: {arquivo_atual}")
 
-        # Criar arquivo vazio se ele não existir
+        # Cria arquivo vazio se ele não existir
         if not os.path.exists(arquivo_atual):
             open(arquivo_atual, 'w').close()
-            print(f"Arquivo {arquivo_atual} criado.")
+            print(f"Arquivo {arquivo_atual} criado.")  #imprime mensagem de arquivo criado no terminal python
         
 
 def monitorar_arquivo():
+    #variaveis globais que podem ser acessadas dentro ou fora dessa função
     global soma_potencia, numero_amostras, ultima_posicao, potencia_media
     global energia_acumulada, ultima_leitura_tempo
     global horario_inicio_teste, tempo_decorrido, teste_iniciado, teste_pausado,tempo_decorrido_segundos
     global tarifa_energia, consumo_mensal_estimado, consumo_mensal_estimado_kwh
 
-    print("🔄 Executando monitorar_arquivo()...")  # Debug
-
+    print("Executando monitorar_arquivo()...")  #imprime mensagem no terminal python chamando a função
+    
+    #verifica se o arquivo .xlsx existe
     try:
         nome_arquivo = "dados_extraidos.xlsx"
 
         # Verifica se o arquivo já existe, se não, cria um novo
         if not os.path.exists(nome_arquivo):
-            print(f"Arquivo '{nome_arquivo}' não encontrado. Criando novo arquivo...")  # Debug
+            #print(f"Arquivo '{nome_arquivo}' não encontrado. Criando novo arquivo...")  # Debug
             wb = xw.Book()  # Cria um novo arquivo
-            sheet = wb.sheets[0]
-            sheet.range('A1').value = ['ID', 'Potência', 'Horario', 'Delta', 'Pmed', 'Energia (Wh)', 'Energia Acumulada (Wh)']  # Cabeçalhos
+            sheet = wb.sheets[0] #seleciona a primeira planilha do arquivo .xlsx
+            sheet.range('A1').value = ['ID', 'Potência', 'Horario', 'Delta', 'Pmed', 'Energia (Wh)', 'Energia Acumulada (Wh)']  # Cabeçalhos sendo escritos na linha A1 da planilha
             wb.save(nome_arquivo)  # Salva o arquivo
-            print(f"Arquivo '{nome_arquivo}' criado com sucesso!")  # Debug
+            print(f"Arquivo '{nome_arquivo}' criado com sucesso!")  #imprime mensagem de arquivo criado no terminal python 
         else:
-            wb = xw.Book(nome_arquivo)
-            sheet = wb.sheets[0]
+            wb = xw.Book(nome_arquivo) #abre o arquivo .xlsx existente
+            sheet = wb.sheets[0] #seleciona a primeira planilha do arquivo .xlsx
 
         # Lê as novas linhas do arquivo de entrada
-        with open(arquivo_saida, 'r', encoding='utf-8') as arquivo:
-            arquivo.seek(ultima_posicao)
-            novas_linhas = arquivo.readlines()
-            ultima_posicao = arquivo.tell()
+        with open(arquivo_saida, 'r', encoding='utf-8') as arquivo: #abre o arquivo no modo leitura com caracteres especiais lidos e fecha corrente depois do arquivo ser lido
+            arquivo.seek(ultima_posicao)  #move o cursor para a ultima linha para nao ler as linhas repetidas
+            novas_linhas = arquivo.readlines() #lê todas as linhas da posição com inicio da posição inicial
+            ultima_posicao = arquivo.tell() #continuar do ponto certo e retorna a posição atual do cursor
 
-        print(f"📜 Linhas novas lidas: {len(novas_linhas)}")  # Debug
+        #print(f"Linhas novas lidas: {len(novas_linhas)}")  # Debug
+        
+        #variaveis que serão utilizadas para armazenar os dados extraídos do arquivo .xlsx
+        potencia_atual = None #extrai o valor de potencia / None nao tem potencia definida
+        fator_potencia_atual = None #extrai o valor de do fator de potencia / None nao tem potencia definida
+        tempo_atual = None #armazena o horario que a potencia foi lida
+        ultima_data = None #armazena a data que a potencia foi lida
+        dados_extraidos = [] #lista para armazedar todos os dados extraidos do arquivo .xlsx
 
-        potencia_atual = None
-        fator_potencia_atual = None
-        tempo_atual = None
-        ultima_data = None
-        dados_extraidos = []
-
-        for linha in novas_linhas:
-            linha = linha.strip()
-            if not linha:
+        for linha in novas_linhas: #percorre cada linha do arquivo .xlsx
+            linha = linha.strip() #remove os espaços indesejados
+            if not linha: #linha vazia
                 continue  # Ignora linhas vazias
 
-            print(f"➡️ Processando linha: {linha}")  # Debug
+            #print(f"Processando linha: {linha}")  # Debug
 
             # Verifica se a linha contém a data (horário)
-            if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", linha):
+            if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", linha): #verifica se a linha esta no formato YYYY-MM-DD-HH:SS
                 try:
-                    ultima_data = datetime.strptime(linha, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    print(f"❌ Erro ao processar tempo: {linha}")
+                    ultima_data = datetime.strptime(linha, "%Y-%m-%d %H:%M:%S") #converte a string para um objeto valido
+                except ValueError: #verificar se tem erro 
+                    print(f"Erro ao processar tempo: {linha}")  #imprime mensagem no referente a linha que contém o erro terminal python
 
             # Extrai a potência
-            if "Power:" in linha:
-                partes = linha.split("Power:")
-                if len(partes) > 1:
+            if "Power:" in linha: #na linha tem a palavra Power?
+                partes = linha.split("Power:") #separa a linha 
+                if len(partes) > 1: #consigo pegar apenas o valor da potencia
                     try:
-                        potencia_atual = float(partes[1].split('W')[0].strip())
-                        print(f"⚡ Potência detectada: {potencia_atual} W")  # Debug
-                    except ValueError:
-                        print(f"❌ Erro ao processar potência: {linha}")
+                        potencia_atual = float(partes[1].split('W')[0].strip()) #divide pela unidade watts e pega apenas o valor
+                        print(f"Potência detectada: {potencia_atual} W")  #imprime mensagem no terminal com o valor da potência python
+                    except ValueError: #verificar se tem erro 
+                        print(f"Erro ao processar potência: {linha}")  #imprime mensagem de erro no terminal do python com o valor da linha de potência errado 
                         
-            if "PF:" in linha:
-                partes = linha.split("PF:")
-                if len(partes) > 1:
+            if "PF:" in linha: #na linha tem a palavra PF?
+                partes = linha.split("PF:") #separa a linha 
+                if len(partes) > 1: #consigo pegar apenas o valor do fator de potencia
                     try:
-                        fator_potencia_atual = float(partes[1].strip())
-                        print(f"✅ Fator de Potência: {fator_potencia_atual}")  # Debug
-                    except ValueError:
-                        print(f"❌ Erro ao processar FP: {linha}")
+                        fator_potencia_atual = float(partes[1].strip()) #pega apenas o valor
+                        print(f"Fator de Potência: {fator_potencia_atual}")  #imprime mensagem no terminal com o valor do fator de potencia
+                    except ValueError: #verificar se tem erro 
+                        print(f"Erro ao processar FP: {linha}")  #imprime mensagem no terminal com a linha que tem o valor do fator de potencia errado
 
         if ultima_data is not None:
-            tempo_atual = ultima_data
+            tempo_atual = ultima_data #passa um valor válido
 
-        delta_t = 0
+        delta_t = 0 # variavel que armaeza o tempo decorrido  entre duas amostras 
 
-        # 🕒 Correção: Acumulando tempo corretamente
-        if teste_iniciado:
-            if horario_inicio_teste is None:
+        
+        if teste_iniciado: #verifica  inicialização do teste
+            if horario_inicio_teste is None: #o teste acaba de começar
                 horario_inicio_teste = datetime.now()  # Define a hora inicial apenas na primeira vez
-            elif not teste_pausado:
+            elif not teste_pausado: #verifica se o botao de pausa foi pressionado
                 tempo_decorrido += datetime.now() - horario_inicio_teste  # Acumula o tempo corretamente
                 horario_inicio_teste = datetime.now()  # Atualiza para continuar a contagem
 
-        # Converte tempo decorrido para string sem milissegundos
-        tempo_decorrido_str = str(tempo_decorrido).split('.')[0]
-        tempo_decorrido_segundos = tempo_decorrido.total_seconds()
-        #consumo_mensal_estimado = ((energia_acumulada / tempo_decorrido_segundos)*30*24*3600)
-        
-        #consumo_mensal_estimado = ((energia_acumulada / tempo_decorrido_segundos)*30*24)
-        #consumo_mensal_estimado_kwh = consumo_mensal_estimado/1000
-        #custo_estimado = consumo_mensal_estimado * tarifa_energia
+       
+        tempo_decorrido_str = str(tempo_decorrido).split('.')[0]  # Converte tempo decorrido para string sem milissegundos
+        tempo_decorrido_segundos = tempo_decorrido.total_seconds() #converte o tempo para segundos
 
-        # Evita divisão por zero e só calcula se a potência for maior que zero
-        if tempo_decorrido_segundos > 0 and potencia_atual is not None and potencia_atual > 0:
-            consumo_mensal_estimado = ((energia_acumulada / tempo_decorrido_segundos) * 30 * 24)
-            consumo_mensal_estimado_kwh = consumo_mensal_estimado / 1000
-            custo_estimado = consumo_mensal_estimado * tarifa_energia
+       
+        if tempo_decorrido_segundos > 0 and potencia_atual is not None and potencia_atual > 0:  # Evita divisão por zero e só calcula se a potência for maior que zero
+            consumo_mensal_estimado = ((energia_acumulada / tempo_decorrido_segundos) * 30 * 24) # calcula o consumo mensal ao longo do tempo
+            consumo_mensal_estimado_kwh = consumo_mensal_estimado / 1000 #converte o consumo para quilo-watt-hora
+            custo_estimado = consumo_mensal_estimado * tarifa_energia #calcula o custo mensal por quilo-watt-hora
         else:
+            #matém os valores
             consumo_mensal_estimado = consumo_mensal_estimado
             consumo_mensal_estimado_kwh = consumo_mensal_estimado_kwh
             custo_estimado = custo_estimado
 
-        if potencia_atual is not None and tempo_atual is not None:
-            soma_potencia += potencia_atual
-            numero_amostras += 1 if fator_potencia_atual is not None else 0
-            potencia_media = soma_potencia / numero_amostras if numero_amostras > 0 else soma_potencia
+        if potencia_atual is not None and tempo_atual is not None: #garante as medições válidas
+            soma_potencia += potencia_atual #incrementa o valor de potência média ao longo do tempo
+            numero_amostras += 1 if fator_potencia_atual is not None else 0 #incrementa as amostras com valores de fator de potencia validos
+            potencia_media = soma_potencia / numero_amostras if numero_amostras > 0 else soma_potencia #se tiver uma amostra calcula a potencia media e evita divisao por zero
             
-            if ultima_leitura_tempo is None:
-                ultima_leitura_tempo = tempo_atual
-                print("⏳ Primeira leitura de tempo registrada.")
+            if ultima_leitura_tempo is None: #garante que tenha uma leitura de tempo 
+                ultima_leitura_tempo = tempo_atual #armazena o primeiro tempo lido
+                print("Primeira leitura de tempo registrada.")
             else:
-                delta_t = (tempo_atual - ultima_leitura_tempo).total_seconds()
-                ultima_leitura_tempo = tempo_atual
-
+                delta_t = (tempo_atual - ultima_leitura_tempo).total_seconds() #calculo do tempo decorrido entre duas amostras
+                ultima_leitura_tempo = tempo_atual #atualiza o tempo que sera referencia par a proxima medição do tempo
+            
+            #lista que armazena todas as medições registradas no arquivo .xlsx
             dados_extraidos.append({
-                'ID': numero_amostras,
-                'Potencia': potencia_atual,
-                'Horario': tempo_atual,
-                'Delta': delta_t
+                'ID': numero_amostras, #numero da sequencia da medição
+                'Potencia': potencia_atual, #valor da potencia
+                'Horario': tempo_atual, #data e horario da medição
+                'Delta': delta_t #tempo entre as medições em segundos
             })
             
+            #imprime os dados na tela de consumo energetico
             texto = (
                 f"Soma da Potência: {soma_potencia:.2f} W\n"
                 f"Número de Amostras: {numero_amostras}\n"
@@ -251,107 +251,98 @@ def monitorar_arquivo():
                 f"Consumo Mensal Estimado em kWh: {consumo_mensal_estimado_kwh:.2f} kWh\n"
                 f"Custo Estimado do kWh: R$ {custo_estimado:.2f}\n"
             )
-            label_resultados.config(text=texto)
+            label_resultados.config(text=texto) #exibe as informações em tempo real na tela de consumo energetico
 
-        if dados_extraidos:
-            # Lendo as linhas existentes no Excel
-            df = pd.read_excel(nome_arquivo)
+        if dados_extraidos: #se tiver dados registrados na lista
+            df = pd.read_excel(nome_arquivo) # lê as linhas existentes no Excel
             
-            for dado in dados_extraidos:
+            for dado in dados_extraidos: #lista que armazena os dados coletados
                 last_row = len(df) + 2  # +2 porque os índices do Excel começam em 1 e há cabeçalhos
                 
-                sheet.range(f'A{last_row}').value = [dado['ID'], dado['Potencia'], dado['Horario'], dado['Delta']]
-                sheet.range(f'C{last_row}').number_format = 'dd-mm hh:mm:ss'
+                sheet.range(f'A{last_row}').value = [dado['ID'], dado['Potencia'], dado['Horario'], dado['Delta']] #começa na célula A e escreve os dados na linha certa
+                sheet.range(f'C{last_row}').number_format = 'dd-mm hh:mm:ss' #na célula C é aplicado a data e hora
 
-                # Calculando Pmed (Média entre potências consecutivas)
+                # Calcula Pmed (Média entre potências consecutivas)
                 if last_row > 2:  # Só calcula a média a partir da segunda linha
                     p1 = sheet.range(f'B{last_row - 1}').value  # Potência anterior
                     p2 = dado['Potencia']  # Potência atual
-                    if p1 is not None:
-                        pmed = (p1 + p2) / 2
-                        sheet.range(f'E{last_row}').value = pmed
+                    if p1 is not None: #garante que tenha valor de potencia
+                        pmed = (p1 + p2) / 2 #calcula a media entre duas potencias
+                        sheet.range(f'E{last_row}').value = pmed # o valor é escrito na coluna E da linha atual
                     else:
                         sheet.range(f'E{last_row}').value = ""  # Deixar vazio se não puder calcular
 
-                # Calculando Energia de cada intervalo
-                pmed_atual = sheet.range(f'E{last_row}').value  # Pmed
-                delta_atual = dado['Delta']  # Delta
-                if pmed_atual is not None and delta_atual > 0:
-                    energia = (pmed_atual * delta_atual) / 3600  # Convertendo para Wh
-                    sheet.range(f'F{last_row}').value = energia
+                # Calcula Energia de cada intervalo
+                pmed_atual = sheet.range(f'E{last_row}').value  # a potencia media é obtida a partir da coluna E
+                delta_atual = dado['Delta']  # obtém o valor do tempo decorrido
+                if pmed_atual is not None and delta_atual > 0: #só calcula se tiver valor de potencia e evita divisão por zero
+                    energia = (pmed_atual * delta_atual) / 3600  # Converte para Wh
+                    sheet.range(f'F{last_row}').value = energia #a energia consumida é escrita na coluna F do arquivo .xlsx
 
                     # Somando energia acumulada
-                    if last_row > 2:
-                        energia_anterior = sheet.range(f'G{last_row - 1}').value  # Energia acumulada anterior
-                        energia_acumulada = (energia_anterior if energia_anterior else 0) + energia
-                        sheet.range(f'G{last_row}').value = energia_acumulada
+                    if last_row > 2: #garante que tem dados de medição de energia
+                        energia_anterior = sheet.range(f'G{last_row - 1}').value  # Energia acumulada anterior na célula G
+                        energia_acumulada = (energia_anterior if energia_anterior else 0) + energia  #se a energia anterir for None assume 0 e soma  ao valor anterior para acumular a energia
+                        sheet.range(f'G{last_row}').value = energia_acumulada #a energia acumulada é armazenada na coluna G do arquivo .xlsx
                     else:
                         sheet.range(f'G{last_row}').value = energia  # Primeira entrada
 
             wb.save()  # Salva o arquivo
-            print(f"📁 Arquivo '{nome_arquivo}' atualizado com os novos dados.")  # Debug
+            print(f"Arquivo '{nome_arquivo}' atualizado com os novos dados.")  #imprime mensagem no terminal com o nome do arquivo criado
 
-    except Exception as e:
-        print(f"❌ Erro inesperado: {e}")
+    except Exception as e: # verifica erro no try
+        print(f"Erro inesperado: {e}") #exibe mensagem de erro no terminal python
 
     janela.after(1000, monitorar_arquivo)  # Chama novamente após 1s
 
-    
-# Atualiza a label com os resultados
-#def atualizar_label():
-    #"""Atualiza a label com os resultados."""
-    #texto = f"Soma da Potência: {soma_potencia:.2f} W\nNúmero de Amostras: {numero_amostras}\nMédia: {media_potencia_amostras} W\nTarifa: {tarifa_energia} R$ \nConsumo Mensal Estimado: {consumo_mensal_estimado_potencia_amostras} kW"
-    #label_resultados.config(text=texto)
-
 def salvar_dados(linha):
     """Salva uma linha de dados no arquivo atual."""
-    verificar_novo_arquivo()
-    with open(arquivo_atual, 'a') as arquivo:
-        arquivo.write(f"{linha}\n")
+    verificar_novo_arquivo() #verifica se ja tem um arquivo e cria se necessário
+    with open(arquivo_atual, 'a') as arquivo:  #abre o arquivo para adicionar os dados no final
+        arquivo.write(f"{linha}\n") #escreve a linha recebendo e adiciona uma nova linha
         
 def salvar_linha_em_arquivo(linha):
     """Salva a linha no arquivo apropriado."""
-    verificar_novo_arquivo()
-    with open(arquivo_atual, 'a') as arquivo:
-        arquivo.write(f"{linha}\n")
+    verificar_novo_arquivo() #verifica se ja tem um arquivo e cria se necessário
+    with open(arquivo_atual, 'a') as arquivo: #abre o arquivo para adicionar os dados no final
+        arquivo.write(f"{linha}\n") #escreve a linha recebendo e adiciona uma nova linha
         arquivo.flush()
         
 def gerar_relatorio():
-    """Gera um relatório contendo os dados do teste."""
-    # Captura os horários de pausa, continuação e atualização
-    pausas = "\n".join(horarios_pausa) if horarios_pausa else "Nenhuma pausa registrada."
-    continuacoes = "\n".join(horarios_continuacao) if horarios_continuacao else "Nenhuma continuação registrada."
-    atualizacoes = "\n".join(horarios_atualizacao) if horarios_atualizacao else "Nenhuma atualização registrada."
+    """Gera um relatório contendo os dados do teste. Salva as informações contidas no arquivo .txt"""
+    pausas = "\n".join(horarios_pausa) if horarios_pausa else "Nenhuma pausa registrada." #Captura a lista dos horários de pausa
+    continuacoes = "\n".join(horarios_continuacao) if horarios_continuacao else "Nenhuma continuação registrada." #Captura a lista dos horários de continuação
+    atualizacoes = "\n".join(horarios_atualizacao) if horarios_atualizacao else "Nenhuma atualização registrada." #Captura a lista dos horários de atualização
 
     # Captura os dados relevantes do teste
-    refrigerador_testado = item_testado_label.cget("text")
-    data_hora_inicio = horario_inicio_formatado or "Indefinido"
-    data_hora_fim = horario_finalizar or "Indefinido"
-    energia_consumida = energia_label.cget("text")
-    custo_total = custo_teste_label.cget("text")
-    rendimento = rendimento_label.cget("text")
-    erro_absoluto_rendimento = erro_absoluto_rendimento_label.cget("text")
-    erro_relativo_rendimento = erro_relativo_rendimento_label.cget("text")
-    consumo_mensal = consumo_mensal_label.cget("text")
-    erro_absoluto_consumo = erro_absoluto_consumo_label.cget("text")
-    erro_relativo_consumo = erro_relativo_consumo_label.cget("text")
-    custo_mensal = custo_mensal_label.cget("text")
+    refrigerador_testado = item_testado_label.cget("text") #captura o nome do refrigerador cadastrado pelo label da tela do analisador
+    data_hora_inicio = horario_inicio_formatado or "Indefinido" #captura o horario e data de inicio de teste da tela do analisador
+    data_hora_fim = horario_finalizar or "Indefinido" #captura o horario e data de fim de teste da tela do analisador
+    energia_consumida = energia_label.cget("text") #captura o valor da média móvel da energia consumida pelo label da tela do analisador
+    custo_total = custo_teste_label.cget("text") #captura o valor da média móvel do custo total da energia consumida pelo label da tela do analisador
+    rendimento = rendimento_label.cget("text") #captura o valor da média móvel do rendimento pelo label da tela do analisador
+    erro_absoluto_rendimento = erro_absoluto_rendimento_label.cget("text") #captura o valor da média móvel de erro absoluto do rendimento pelo label da tela do analisador
+    erro_relativo_rendimento = erro_relativo_rendimento_label.cget("text") #captura o valor da média móvel de erro relativo do rendimento pelo label da tela do analisador
+    consumo_mensal = consumo_mensal_label.cget("text") #captura o valor da média móvel do consumo mensal pelo label da tela do analisador
+    erro_absoluto_consumo = erro_absoluto_consumo_label.cget("text") #captura o valor da média móvel de erro absoluto do consumo pelo label da tela do analisador
+    erro_relativo_consumo = erro_relativo_consumo_label.cget("text") #captura o valor da média móvel de erro relativo do consumo pelo label da tela do analisador
+    custo_mensal = custo_mensal_label.cget("text") #captura o valor da média móvel do custo mensal pelo label da tela do analisador
 
     # Captura as transições de alertas
-    transicoes_consumo = "\n".join(transicoes_alertas_consumo) if transicoes_alertas_consumo else "Nenhuma transição de consumo registrada."
-    transicoes_rendimento = "\n".join(transicoes_alertas_rendimento) if transicoes_alertas_rendimento else "Nenhuma transição de rendimento registrada."
-    transicoes_temp1 = "\n".join(transicoes_alertas_temp_sensor_1) if transicoes_alertas_temp_sensor_1 else "Nenhuma transição de temperatura do Sensor 1 registrada."
-    transicoes_temp2 = "\n".join(transicoes_alertas_temp_sensor_2) if transicoes_alertas_temp_sensor_2 else "Nenhuma transição de temperatura do Sensor 2 registrada."
-    transicoes_sensor_porta = "\n".join(transicoes_alertas_sensor_porta) if transicoes_alertas_sensor_porta else "Nenhuma transição do sensor de porta registrada."
+    transicoes_consumo = "\n".join(transicoes_alertas_consumo) if transicoes_alertas_consumo else "Nenhuma transição de consumo registrada." #Captura a lista de transições de alertas de consumo
+    transicoes_rendimento = "\n".join(transicoes_alertas_rendimento) if transicoes_alertas_rendimento else "Nenhuma transição de rendimento registrada." #Captura a lista de transições de alertas de rendimento
+    transicoes_temp1 = "\n".join(transicoes_alertas_temp_sensor_1) if transicoes_alertas_temp_sensor_1 else "Nenhuma transição de temperatura do Sensor 1 registrada." #Captura a lista de transições de alertas de temperatura do sensor 1
+    transicoes_temp2 = "\n".join(transicoes_alertas_temp_sensor_2) if transicoes_alertas_temp_sensor_2 else "Nenhuma transição de temperatura do Sensor 2 registrada." #Captura a lista de transições de alertas de temperatura do sensor 2
+    transicoes_sensor_porta = "\n".join(transicoes_alertas_sensor_porta) if transicoes_alertas_sensor_porta else "Nenhuma transição do sensor de porta registrada." #Captura a lista de transições de alertas do sensor de porta 
 
-    # Cria o conteúdo do relatório
+    # Cria o conteúdo do relatório no arquivo .txt
     conteudo_relatorio = f"""
-    Relatório de Teste - {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+    Relatório de Teste - {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} 
     ---------------------------------------------------
     Refrigerador Testado: {refrigerador_testado}
     Início do Teste: {data_hora_inicio}
     Fim do Teste: {data_hora_fim}
-
+    
     Horários de Pausa:
     {pausas}
 
@@ -393,175 +384,165 @@ def gerar_relatorio():
     ---------------------------------------------------
     """
 
-    # Salva o relatório em um arquivo de texto
+    # Salva o relatório em um arquivo de texto cujo nome tem o valor da data e do horario atual
     nome_arquivo = f"relatorio_teste_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    with open(nome_arquivo, 'w') as arquivo:
-        arquivo.write(conteudo_relatorio)
+    with open(nome_arquivo, 'w') as arquivo: #abre o arquivo no modo escrita
+        arquivo.write(conteudo_relatorio) #escreve o conteudo do relatorio criado no arquivo .txt
 
-    print(f"Relatório salvo como {nome_arquivo}")
-    messagebox.showinfo("Relatório Gerado", f"O relatório foi salvo como {nome_arquivo}")
+    print(f"Relatório salvo como {nome_arquivo}") #imprime mensagem no terminal python
+    messagebox.showinfo("Relatório Gerado", f"O relatório foi salvo como {nome_arquivo}") #mensagem na tela quando o relatorio é gerado
 
-
-
-
-
-
-
-def abrir_tela_teste_personalizado():
-    def iniciar_teste_personalizado():
-        global horarios_teste_personalizado
+#Método responsável pelo teste personalizado
+def abrir_tela_teste_personalizado(): #abre a tela do teste personalizado
+    def iniciar_teste_personalizado(): #função para iniciar o teste personalizado 
+        global horarios_teste_personalizado #armazena numa variavel global dentro e fora desse método os horarios configurados pelo usuario
 
         # Verificar se um item está selecionado na lista
-        selecionado = lista_refrigeradores.curselection()
-        if not selecionado:
-            messagebox.showwarning("Atenção", "Você precisa selecionar um refrigerador antes de configurar o teste personalizado!")
-            return
+        selecionado = lista_refrigeradores.curselection() #captura o indice do refrigerador selecionado na lista
+        if not selecionado: #senao for selecionado nenhum refrigerador
+            messagebox.showwarning("Atenção", "Você precisa selecionar um refrigerador antes de configurar o teste personalizado!") #emite uma mensagem na tela
+            return #evita a execução do restante do código
 
-        dia_selecionado = calendario.get_date()
-        horario_inicio = entrada_inicio.get()
-        horario_fim = entrada_fim.get()
+        dia_selecionado = calendario.get_date() #obtem a data selecionada pelo usuario
+        horario_inicio = entrada_inicio.get() #obtem o horario de inicio de teste que foi digitado no campo
+        horario_fim = entrada_fim.get() #obtem o horario de fim de teste que foi digitado no camp
 
-        if not horario_inicio or not horario_fim:
-            messagebox.showwarning("Erro", "Por favor, insira os horários de início e fim.")
-            return
+        if not horario_inicio or not horario_fim: #senão for escrito corretamente o horario de inicio ou fim
+            messagebox.showwarning("Erro", "Por favor, insira os horários de início e fim.")  #emite uma mensagem na tel
+            return #evita a execução do restante do código
 
-        horarios_teste_personalizado = {
-            "dia": dia_selecionado,
-            "inicio": horario_inicio,
-            "fim": horario_fim
+        horarios_teste_personalizado = { #cria um pacote de dados
+            "dia": dia_selecionado, #armazena o dia 
+            "inicio": horario_inicio, #armazena o horario de inicio de teste 
+            "fim": horario_fim #armazena o horario de fim de teste
         }
 
         # Atualizar os labels na tela principal
-        dia_programado_label.config(text=f"Dia Programado: {dia_selecionado}")
-        horario_inicio_programado_label.config(text=f"Horário de Início: {horario_inicio}")
-        horario_fim_programado_label.config(text=f"Horário de Fim: {horario_fim}")
+        dia_programado_label.config(text=f"Dia Programado: {dia_selecionado}") #na tela do analisador exibe a informação de dia programado
+        horario_inicio_programado_label.config(text=f"Horário de Início: {horario_inicio}") #na tela do analisador exibe a informação de horario de inicio programado
+        horario_fim_programado_label.config(text=f"Horário de Fim: {horario_fim}") #na tela do analisador exibe a informação de horario de fim programado
 
-        print(f"Horários Configurados: {horarios_teste_personalizado}")
-        janela_personalizada.destroy()
+        print(f"Horários Configurados: {horarios_teste_personalizado}") #imprime mensagem no terminal python com o pacote de dados
+        janela_personalizada.destroy() #fecha a janela de teste personalizado
 
         # Iniciar a verificação do horário programado
-        verificar_horario_teste()
+        verificar_horario_teste() #chama a função que verifica se o horario programado chegou
 
-    janela_personalizada = Toplevel(janela)
-    janela_personalizada.title("Configurar Teste Personalizado")
+    janela_personalizada = Toplevel(janela) #é uma janela secundária que abre para configurar o teste personalizado
+    janela_personalizada.title("Configurar Teste Personalizado") #nome da janela
 
-    Label(janela_personalizada, text="Selecione o dia:").pack(pady=5)
-    calendario = Calendar(janela_personalizada, selectmode="day", date_pattern="dd/mm/yyyy")
-    calendario.pack(pady=10)
+    Label(janela_personalizada, text="Selecione o dia:").pack(pady=5) #cria o campo de dia no calendario na janela secundaria com espaçamento no eixo x
+    calendario = Calendar(janela_personalizada, selectmode="day", date_pattern="dd/mm/yyyy") #define o formato de data no campo do calendario
+    calendario.pack(pady=10) #espaçamento no eixo y entre os campos
 
-    Label(janela_personalizada, text="Horário de Início (HH:MM):").pack(pady=5)
-    entrada_inicio = tk.Entry(janela_personalizada, width=10)
-    entrada_inicio.pack(pady=5)
+    Label(janela_personalizada, text="Horário de Início (HH:MM):").pack(pady=5) #cria o campo de Horario de inicio de teste personalizado no calendario na janela secundaria
+    entrada_inicio = tk.Entry(janela_personalizada, width=10) #campo entrada para colocar o horario de inicio de teste personalizado
+    entrada_inicio.pack(pady=5) #espaçamento no eixo y entre os campos
 
-    Label(janela_personalizada, text="Horário de Fim (HH:MM):").pack(pady=5)
-    entrada_fim = tk.Entry(janela_personalizada, width=10)
-    entrada_fim.pack(pady=5)
+    Label(janela_personalizada, text="Horário de Fim (HH:MM):").pack(pady=5) #cria o campo de Horario de fim de teste personalizado no calendario na janela secundaria
+    entrada_fim = tk.Entry(janela_personalizada, width=10) #campo entrada para colocar o horario de fim de teste personalizado
+    entrada_fim.pack(pady=5) #espaçamento no eixo y entre os campos
 
-    Button(janela_personalizada, text="Iniciar Teste", command=iniciar_teste_personalizado).pack(pady=10)
-    Button(janela_personalizada, text="Cancelar", command=janela_personalizada.destroy).pack(pady=5)
+    Button(janela_personalizada, text="Iniciar Teste", command=iniciar_teste_personalizado).pack(pady=10) #cria o botão na janela secundario para iniciar o teste personalizado com as informações salvas
+    Button(janela_personalizada, text="Cancelar", command=janela_personalizada.destroy).pack(pady=5) #cria o botão na janela secundario para cancelar o teste personalizado e nao salva nada
 
-
-
-
+#Método responsável que verifica o horario de teste periodicamente
 def verificar_horario_teste():
-    global horarios_teste_personalizado, teste_iniciado
+    global horarios_teste_personalizado, teste_iniciado #variaveis globais a serem utilizadas nesse método e fora dele
 
     try:
-        # Recuperar os horários programados
-        dia = horarios_teste_personalizado.get('dia')
-        inicio = horarios_teste_personalizado.get('inicio')
-        fim = horarios_teste_personalizado.get('fim')
+        #Recupera os horários programados vindos do pacote de dados 
+        dia = horarios_teste_personalizado.get('dia') #obtém o dia do teste personalizado
+        inicio = horarios_teste_personalizado.get('inicio') #obtém o horário de início do teste personalizado
+        fim = horarios_teste_personalizado.get('fim') #obtém o horário de fim do teste personalizado
 
-        horario_inicio_dt = datetime.strptime(f"{dia} {inicio}", "%d/%m/%Y %H:%M")
-        horario_fim_dt = datetime.strptime(f"{dia} {fim}", "%d/%m/%Y %H:%M")
-    except (ValueError, TypeError):
-        tempo_restante_label.config(text="Tempo Restante: Configuração inválida")
-        return
+        horario_inicio_dt = datetime.strptime(f"{dia} {inicio}", "%d/%m/%Y %H:%M") #converte dia e inicio do teste personalizado para o objeto datetime
+        horario_fim_dt = datetime.strptime(f"{dia} {fim}", "%d/%m/%Y %H:%M") #converte dia e fim do teste personalizado para o objeto datetime
+    except (ValueError, TypeError): #tratamento de erros durante a conversão de dados de data e horario
+        tempo_restante_label.config(text="Tempo Restante: Configuração inválida") #se tiver erro exibe mensagem
+        return #evita a execução do restante do código
 
-    agora = datetime.now()
+    agora = datetime.now() #passa para a variavel agora a data e o horario atual 
 
-    # Verificar se é hora de iniciar o teste
-    if not teste_iniciado and agora >= horario_inicio_dt:
-        tempo_restante_label.config(text="Tempo Restante: Iniciando...")
-        iniciar_teste()
+    if not teste_iniciado and agora >= horario_inicio_dt: # Verificar se é hora de iniciar o teste apenas uma vez
+        tempo_restante_label.config(text="Tempo Restante: Iniciando...") #altera o texto da label e informa na tela que o horario programado foi detectado
+        iniciar_teste() #função que inicia o teste de medição do refrigerador
     
-    # Verificar se é hora de finalizar o teste
-    if teste_iniciado and agora >= horario_fim_dt:
-        finalizar_teste()
+    if teste_iniciado and agora >= horario_fim_dt: # Verificar se é hora de finalizar o teste apenas uma vez
+        finalizar_teste() #função que finaliza o teste de medição do refrigerador
         tempo_restante_label.config(text="Tempo Restante: Teste finalizado.")
-        return
+        return #evita a execução do restante do código
 
-    # Atualizar o tempo restante para o próximo evento
-    proximo_evento = horario_fim_dt if teste_iniciado else horario_inicio_dt
-    tempo_restante = (proximo_evento - agora).total_seconds()
+    # Atualizar o tempo restante para o próximo evento (contagem regressiva)
+    proximo_evento = horario_fim_dt if teste_iniciado else horario_inicio_dt #qual evento deve ser monitorado?
+    tempo_restante = (proximo_evento - agora).total_seconds() #calcula o tempo restante até o proximo evento
 
-    if tempo_restante > 0:
-        horas, resto = divmod(tempo_restante, 3600)
-        minutos, segundos = divmod(resto, 60)
+    if tempo_restante > 0: #se o tempo for maior que 0 o evento ainda nao chegou
+        horas, resto = divmod(tempo_restante, 3600)  # o tempo restante é dividido em horas e e segundos que restam
+        minutos, segundos = divmod(resto, 60) #converte segundos em minutos e segundos finais
         tempo_restante_label.config(
             text=f"Tempo Restante: {int(horas):02d}:{int(minutos):02d}:{int(segundos):02d}"
-        )
-        janela.after(1000, verificar_horario_teste)
+        ) # o texto da label é atualizado e exibido em HORAS:MINUTOS:SEGUNDOS
+        janela.after(1000, verificar_horario_teste)  # Chama novamente após 1s
 
+#Método que carrega os refrigeradores do arquivo JSON, se existir
 def carregar_refrigeradores():
-    """Carrega os refrigeradores do arquivo JSON, se existir."""
-    global refrigeradores
-    if os.path.exists(ARQUIVO_JSON):
-        with open(ARQUIVO_JSON, "r") as arquivo:
-            refrigeradores = json.load(arquivo)
+    global refrigeradores #variavel global para ser utilizada aqui ou fora do método
+    if os.path.exists(ARQUIVO_JSON): #verifica se o arquivo json esta criado
+        with open(ARQUIVO_JSON, "r") as arquivo: #abre o arquivo JSON para ler os dados
+            refrigeradores = json.load(arquivo) #os dados são carregados do arquivo JSON e armazena na variavel refrigeradores
 
+#Método que salva os refrigeradores no arquivo JSON
 def salvar_refrigeradores():
-    """Salva os refrigeradores no arquivo JSON."""
-    with open(ARQUIVO_JSON, "w") as arquivo:
-        json.dump(refrigeradores, arquivo, indent=4)
+    with open(ARQUIVO_JSON, "w") as arquivo: #abre o arquivo JSON para escrever os dados
+        json.dump(refrigeradores, arquivo, indent=4) # os dados são salvos na variavel refrigeradores com 4 espaços de indentação
 
-
+#Método que abre a tela de cadastro
 def abrir_tela_cadastro():
-    def salvar_refrigerador():
-        nome = entrada_nome.get()
-        modelo = entrada_modelo.get()
-        capacidade = entrada_capacidade.get()
+    def salvar_refrigerador(): #método que salva o refrigerador cadastrado
+        nome = entrada_nome.get() #obtém o nome do refrigerador digitado 
+        modelo = entrada_modelo.get() #obtém o modelo do refrigerador digitado 
+        capacidade = entrada_capacidade.get() #obtém a capacidade do refrigerador digitado 
 
-        if nome and modelo and capacidade:
-            refrigeradores.append({"nome": nome, "modelo": modelo, "capacidade": capacidade})
-            salvar_refrigeradores()
-            messagebox.showinfo("Sucesso", "Refrigerador cadastrado com sucesso!")
-            janela_cadastro.destroy()
-            atualizar_lista()
+        if nome and modelo and capacidade: #nome modelo e capacidade foram preenchidos ?
+            refrigeradores.append({"nome": nome, "modelo": modelo, "capacidade": capacidade}) #os dados são armazenados numa lista
+            salvar_refrigeradores() #chama o método que salva os refrigeradores no arquivo JSON
+            messagebox.showinfo("Sucesso", "Refrigerador cadastrado com sucesso!") #emite mensagem na tela confirmando o cadastro do refrigerador
+            janela_cadastro.destroy() #fecha a tela de cadastro
+            atualizar_lista() #chama o método que atualiza a lista de refrigeradores cadastrados na tela de cadastro
         else:
-            messagebox.showwarning("Erro", "Todos os campos devem ser preenchidos.")
+            messagebox.showwarning("Erro", "Todos os campos devem ser preenchidos.") #emite mensagem de erro tela indicando que o usuario deve preencher todos os campos
 
-    def cancelar_cadastro():
-        janela_cadastro.destroy()
+    def cancelar_cadastro(): #método que cancela um cadastrod e refrigerador e não salva os dados
+        janela_cadastro.destroy() #fecha a tela de cadastro
 
-    # Criar uma nova janela para cadastro
-    janela_cadastro = tk.Toplevel(janela)
-    janela_cadastro.title("Cadastrar Refrigerador")
+    janela_cadastro = tk.Toplevel(janela) # Criar uma nova janela para cadastro de refrigerador
+    janela_cadastro.title("Cadastrar Refrigerador") #titulo da tela de cadastro
 
-    tk.Label(janela_cadastro, text="Nome:").grid(row=0, column=0, padx=10, pady=5)
-    entrada_nome = tk.Entry(janela_cadastro)
-    entrada_nome.grid(row=0, column=1, padx=10, pady=5)
+    tk.Label(janela_cadastro, text="Nome:").grid(row=0, column=0, padx=10, pady=5) #cria um rótulo do nome e um posicionamento
+    entrada_nome = tk.Entry(janela_cadastro) #cria um campo de entrada de nome 
+    entrada_nome.grid(row=0, column=1, padx=10, pady=5) #posicionamento do campo de entrada de nome
 
-    tk.Label(janela_cadastro, text="Modelo:").grid(row=1, column=0, padx=10, pady=5)
-    entrada_modelo = tk.Entry(janela_cadastro)
-    entrada_modelo.grid(row=1, column=1, padx=10, pady=5)
+    tk.Label(janela_cadastro, text="Modelo:").grid(row=1, column=0, padx=10, pady=5) #cria um rótulo do modelo e um posicionamento
+    entrada_modelo = tk.Entry(janela_cadastro) #cria um campo de entrada de modelo
+    entrada_modelo.grid(row=1, column=1, padx=10, pady=5) #posicionamento do campo de entrada de modelo
 
-    tk.Label(janela_cadastro, text="Capacidade (L):").grid(row=2, column=0, padx=10, pady=5)
-    entrada_capacidade = tk.Entry(janela_cadastro)
-    entrada_capacidade.grid(row=2, column=1, padx=10, pady=5)
+    tk.Label(janela_cadastro, text="Capacidade (L):").grid(row=2, column=0, padx=10, pady=5) #cria um rótulo da capacidade em litros e um posicionamento
+    entrada_capacidade = tk.Entry(janela_cadastro) #cria um campo de entrada de capacidade
+    entrada_capacidade.grid(row=2, column=1, padx=10, pady=5) #posicionamento do campo de entrada de capacidade
 
-    tk.Button(janela_cadastro, text="Salvar", command=salvar_refrigerador).grid(row=3, column=0, padx=10, pady=10)
-    tk.Button(janela_cadastro, text="Cancelar", command=cancelar_cadastro).grid(row=3, column=1, padx=10, pady=10)
+    tk.Button(janela_cadastro, text="Salvar", command=salvar_refrigerador).grid(row=3, column=0, padx=10, pady=10) #cria o botão na tela de cadastro para salvar os dados cadastrados e um posicionamento
+    tk.Button(janela_cadastro, text="Cancelar", command=cancelar_cadastro).grid(row=3, column=1, padx=10, pady=10) #cria o botão na tela de cadastro para cancelar e não salva os dados e um posicionamento
 
     # Adicionar os botões de editar e excluir dentro da janela de cadastro
-    tk.Button(janela_cadastro, text="Editar Refrigerador", command=abrir_tela_edicao).grid(row=4, column=0, padx=10, pady=10)
-    tk.Button(janela_cadastro, text="Excluir Refrigerador", command=excluir_refrigerador).grid(row=4, column=1, padx=10, pady=10)
+    tk.Button(janela_cadastro, text="Editar Refrigerador", command=abrir_tela_edicao).grid(row=4, column=0, padx=10, pady=10) #cria o botão na tela de cadastro para editar os dados cadastrados e um posicionamento
+    tk.Button(janela_cadastro, text="Excluir Refrigerador", command=excluir_refrigerador).grid(row=4, column=1, padx=10, pady=10) #cria o botão na tela de cadastro para excluir os dados cadastrados e um posicionamento
 
-    
+#    
 def abrir_tela_edicao():
     selecionado = lista_refrigeradores.curselection()
     if not selecionado:
-        messagebox.showwarning("Atenção", "Selecione um refrigerador para editar!")
+        messagebox.showwarning("Atenção", "Selecionar um refrigerador para editar!")
         return
 
     idx = selecionado[0]
