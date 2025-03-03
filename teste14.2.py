@@ -2,7 +2,7 @@ import pandas as pd #biblioteca para os os dados tabelados
 from openpyxl import Workbook, load_workbook #biblioteca para poder enviar dados para um arquivo .xlsx
 import xlwings as xw  # biblioteca necessária para poder automatizar um arquivo .xlsx 
 import serial #biblioteca para comunicação serial com o hardware (chip atmega328p)
-import tkinter as tk #biblioteca necessária para janelas com interface gráfica
+import tkinter as tk #biblioteca necessária para janelas com tela gráfica
 from tkinter import messagebox  # biblioteca para emitir alertas e mensagens na tela
 from tkinter.scrolledtext import ScrolledText #biblioteca para poder usar barra de rolagem na tela onde são exibidos os dados vindos do hardware
 import math #biblioteca para poder utilizar funções da matemática avançadas
@@ -10,19 +10,19 @@ from datetime import datetime, timedelta #biblioteca para poder utilizar datas e
 import json #biblioteca necessário para poder salvar e carregar os dados que usam a estrutura no formato JSON
 import os #biblioteca necessária para interação com o sistema operacional e seus diretórios
 import re #biblioteca que extrai dados de arquivos
-from tkinter import Toplevel, Label, Button #bibliotecas para poder criar uma nova janela dentro de uma aplicação, exibe textos em uma interface, utilizar botões em uma interface
+from tkinter import Toplevel, Label, Button #bibliotecas para poder criar uma nova janela dentro de uma aplicação, exibe textos em uma tela, utilizar botões em uma tela
 from tkcalendar import Calendar #biblioteca que 
-import threading  # biblioteca para executar tarefas em segundo plano e não travar a interface gráfica
+import threading  # biblioteca para executar tarefas em segundo plano e não travar a tela gráfica
 
-# Comunicação da porta serial do hardware 
-porta_serial = 'COM3'  # verificar porta no gerenciador de dispositivos
+#comunicação da porta serial do hardware 
+porta_serial = 'COM3'  #verificar porta no gerenciador de dispositivos
 baud_rate = 9600       #frequência do baud rate (mesma utilizada no firmware do arquivo .ino) 
 arquivo_saida = 'dados_arduino_indefinido.txt' #nome do arquivo que 
 
-# Nome do arquivo JSON para salvar os dados cadastrados de refrigeradores
+#nome do arquivo JSON para salvar os dados cadastrados de refrigeradores
 ARQUIVO_JSON = "refrigeradores.json"
 
-# Variáveis a serem editadas
+#variáveis a serem editadas
 tarifa_energia = 0.80  # valor de tarifa
 potencia_nominal = 218.0  # valor de potência nominal do refrigerador em watts
 tensao_nominal = 220.0    # valor de tensão nominal do refrigerador em volts
@@ -42,11 +42,11 @@ horario_inicio_teste = None #variavel global que armazena o valor do início de 
 tempo_decorrido = timedelta(0) #variavel global que armazena o valor do início de um teste
 horarios_teste_personalizado = {} #variavel global que armazena os valores dos horários setados no teste personalizado
 
-# Inicialização das variáveis globais para o rendimento
+#inicialização das variáveis globais para o rendimento
 estado_atual_rendimento = None #variável global que armazena o estado atual para alerta de rendimento
 horario_transicao_rendimento = None #variável global que armazena o horário que foi feita a transição de estado de rendimento
 
-# Inicialização de variáveis globais
+#inicialização de variáveis globais
 inicio_periodo = datetime.now() #variavel global que armazena 
 arquivo_atual = None
 
@@ -60,10 +60,10 @@ energia_acumulada = 0.0  #variavel global de inicialização para porder calcula
 ultima_leitura_tempo = None  # variavel global para poder inicializar a ultima leitura a ser lida no arquivo .xlsx
 
 
-contador_id = 1  # Variável global para gerar IDs únicos
-dados_buffer = []  # Armazena as leituras temporariamente
+contador_id = 1  #variável global para gerar IDs únicos
+dados_buffer = []  #armazena as leituras temporariamente
 
-# Conectar ao Arduino via porta serial
+#conectar ao Arduino via porta serial
 try:
     arduino = serial.Serial(porta_serial, baud_rate, timeout=1) #passando como parâmetro a porta do arduino, a frequencia do baud rate e o tempo de envio de dados
     print(f"Conectado à porta {porta_serial}") #mensagem de conexão positiva no terminal python
@@ -71,52 +71,50 @@ except serial.SerialException as e:
     print(f"Erro de conexão: {e}") #mensagem de erro de comunicação no terminal python
     exit() #fecha o software
 
-# Variáveis para armazenar os dados vindos via serial e poder calcular a media movel
-valores_potencia = [] # Lista para armazenar os valores de potência do sensor de energia
-valores_temperatura = [] # Lista para armazenar os valores de temperatura do sensor de temperatura 1
-valores_temperatura2 = [] # Lista para armazenar os valores de temperatura do sensor de temperatura 2
-valores_tensao = [] # Lista para armazenar os valores de tensao do sensor de energia
-valores_corrente = [] # Lista para armazenar os valores de corrente do sensor de energia
-valores_potencia_aparente = [] # Lista para armazenar os valores calcular da potencia aparente
-valores_potencia_reativa = [] # Lista para armazenar os valores calcular da potencia reativa
-valores_sensor_porta = [] # Lista para armazenar os valores 0 ou 1 do sensor de porta
-horarios = [] # Lista para armazenar os valores dos horarios
-refrigeradores = [] # Lista para armazenar os refrigeradores cadastrados
-transicoes_alertas_consumo = [] # Lista para armazenar as transições de alertas do consumo
+#variáveis para armazenar os dados vindos via serial e poder calcular a media movel
+valores_potencia = [] #lista para armazenar os valores de potência do sensor de energia
+valores_temperatura = [] #lista para armazenar os valores de temperatura do sensor de temperatura 1
+valores_temperatura2 = [] #lista para armazenar os valores de temperatura do sensor de temperatura 2
+valores_tensao = [] #lista para armazenar os valores de tensao do sensor de energia
+valores_corrente = [] #lista para armazenar os valores de corrente do sensor de energia
+valores_potencia_aparente = [] #lista para armazenar os valores calcular da potencia aparente
+valores_potencia_reativa = [] #lista para armazenar os valores calcular da potencia reativa
+valores_sensor_porta = [] #lista para armazenar os valores 0 ou 1 do sensor de porta
+horarios = [] #lista para armazenar os valores dos horarios
+refrigeradores = [] #lista para armazenar os refrigeradores cadastrados
+transicoes_alertas_consumo = [] #lista para armazenar as transições de alertas do consumo
 transicoes_alertas_rendimento = [] # Lista para armazenar as transições de alertas do rendimento
-transicoes_alertas_temp_sensor_1 = [] # Lista para armazenar as transições de alertas de temperatura do sensor 1
-transicoes_alertas_temp_sensor_2 = [] # Lista para armazenar as transições de alertas de temperatura do sensor 2
-transicoes_alertas_sensor_porta = [] # Lista para armazenar as transições de alertas do sensor de porta
-horarios_pausa = []  # Lista para armazenar as transições de horarios do botão pausa
-horarios_continuacao = [] # Lista para armazenar as transições de horarios do botão continuar
-horarios_atualizacao = [] # Lista para armazenar as transições de horarios do botão atualizar
+transicoes_alertas_temp_sensor_1 = [] #lista para armazenar as transições de alertas de temperatura do sensor 1
+transicoes_alertas_temp_sensor_2 = [] #lista para armazenar as transições de alertas de temperatura do sensor 2
+transicoes_alertas_sensor_porta = [] #lista para armazenar as transições de alertas do sensor de porta
+horarios_pausa = []  #lista para armazenar as transições de horarios do botão pausa
+horarios_continuacao = [] #lista para armazenar as transições de horarios do botão continuar
+horarios_atualizacao = [] #lista para armazenar as transições de horarios do botão atualizar
 
-# Definir o tamanho da janela para a média móvel
-tamanho_janela = 10  # Número de leituras para calcular a média móvel
+#definir o tamanho da janela para a média móvel
+tamanho_janela = 10  #número de leituras para calcular a média móvel
 
-# Função para gerar o nome do arquivo
+#Método para gerar o nome do arquivo usando a data e o tempo de teste
 def obter_nome_arquivo():
-    """Gera o nome do arquivo com base na data e no período do teste."""
-    horario_inicio_teste_formatado = horario_inicio_teste.strftime('%Y-%m-%d_%H-%M-%S') if horario_inicio_teste else "indefinido"
-    return f"dados_arduino_{horario_inicio_teste_formatado}.txt"
+    horario_inicio_teste_formatado = horario_inicio_teste.strftime('%Y-%m-%d_%H-%M-%S') if horario_inicio_teste else "indefinido" #padroniza o valor da data e do horario de inicio de teste
+    return f"dados_arduino_{horario_inicio_teste_formatado}.txt" #imprime mensagem de usando arquivo no terminal python
     
-# Verifica se é necessário criar um novo arquivo
+#Método se é necessário criar um novo arquivo
 def verificar_novo_arquivo():
-    """Verifica se é necessário criar um novo arquivo."""
     global inicio_periodo, arquivo_atual #variaveis globais que podem ser acessadas dentro ou fora dessa função
 
     agora = datetime.now() #armazena a data e o horario a partir do objeto
     if agora - inicio_periodo >= timedelta(minutes=1) or arquivo_atual is None: 
         inicio_periodo = agora #atualiza o horario atual
         arquivo_atual = obter_nome_arquivo() #gera um novo arquivo baseado na data e hora
-        #print(f"Usando arquivo: {arquivo_atual}")
+        #print(f"Usando arquivo: {arquivo_atual}") #imprime mensagem de usando arquivo no terminal python
 
-        # Cria arquivo vazio se ele não existir
+        #cria arquivo vazio se ele não existir
         if not os.path.exists(arquivo_atual):
             open(arquivo_atual, 'w').close()
-            print(f"Arquivo {arquivo_atual} criado.")  #imprime mensagem de arquivo criado no terminal python
+            print(f"Arquivo {arquivo_atual} criado.") #imprime mensagem de arquivo criado no terminal python
         
-
+#Método que monitora o arquivo .txt com os dados vindos do arduino e calcula o consumo energetico
 def monitorar_arquivo():
     #variaveis globais que podem ser acessadas dentro ou fora dessa função
     global soma_potencia, numero_amostras, ultima_posicao, potencia_media
@@ -130,19 +128,19 @@ def monitorar_arquivo():
     try:
         nome_arquivo = "dados_extraidos.xlsx"
 
-        # Verifica se o arquivo já existe, se não, cria um novo
+        #verifica se o arquivo já existe, se não, cria um novo
         if not os.path.exists(nome_arquivo):
             #print(f"Arquivo '{nome_arquivo}' não encontrado. Criando novo arquivo...")  # Debug
-            wb = xw.Book()  # Cria um novo arquivo
+            wb = xw.Book()  #cria um novo arquivo
             sheet = wb.sheets[0] #seleciona a primeira planilha do arquivo .xlsx
-            sheet.range('A1').value = ['ID', 'Potência', 'Horario', 'Delta', 'Pmed', 'Energia (Wh)', 'Energia Acumulada (Wh)']  # Cabeçalhos sendo escritos na linha A1 da planilha
-            wb.save(nome_arquivo)  # Salva o arquivo
+            sheet.range('A1').value = ['ID', 'Potência', 'Horario', 'Delta', 'Pmed', 'Energia (Wh)', 'Energia Acumulada (Wh)']  #cabeçalhos sendo escritos na linha A1 da planilha
+            wb.save(nome_arquivo)  #salva o arquivo
             print(f"Arquivo '{nome_arquivo}' criado com sucesso!")  #imprime mensagem de arquivo criado no terminal python 
         else:
             wb = xw.Book(nome_arquivo) #abre o arquivo .xlsx existente
             sheet = wb.sheets[0] #seleciona a primeira planilha do arquivo .xlsx
 
-        # Lê as novas linhas do arquivo de entrada
+        #lê as novas linhas do arquivo de entrada
         with open(arquivo_saida, 'r', encoding='utf-8') as arquivo: #abre o arquivo no modo leitura com caracteres especiais lidos e fecha corrente depois do arquivo ser lido
             arquivo.seek(ultima_posicao)  #move o cursor para a ultima linha para nao ler as linhas repetidas
             novas_linhas = arquivo.readlines() #lê todas as linhas da posição com inicio da posição inicial
@@ -160,18 +158,18 @@ def monitorar_arquivo():
         for linha in novas_linhas: #percorre cada linha do arquivo .xlsx
             linha = linha.strip() #remove os espaços indesejados
             if not linha: #linha vazia
-                continue  # Ignora linhas vazias
+                continue  #ignora linhas vazias
 
             #print(f"Processando linha: {linha}")  # Debug
 
-            # Verifica se a linha contém a data (horário)
+            #verifica se a linha contém a data (horário)
             if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", linha): #verifica se a linha esta no formato YYYY-MM-DD-HH:SS
                 try:
                     ultima_data = datetime.strptime(linha, "%Y-%m-%d %H:%M:%S") #converte a string para um objeto valido
                 except ValueError: #verificar se tem erro 
                     print(f"Erro ao processar tempo: {linha}")  #imprime mensagem no referente a linha que contém o erro terminal python
 
-            # Extrai a potência
+            #extrai a potência
             if "Power:" in linha: #na linha tem a palavra Power?
                 partes = linha.split("Power:") #separa a linha 
                 if len(partes) > 1: #consigo pegar apenas o valor da potencia
@@ -198,17 +196,17 @@ def monitorar_arquivo():
         
         if teste_iniciado: #verifica  inicialização do teste
             if horario_inicio_teste is None: #o teste acaba de começar
-                horario_inicio_teste = datetime.now()  # Define a hora inicial apenas na primeira vez
+                horario_inicio_teste = datetime.now()  #define a hora inicial apenas na primeira vez
             elif not teste_pausado: #verifica se o botao de pausa foi pressionado
-                tempo_decorrido += datetime.now() - horario_inicio_teste  # Acumula o tempo corretamente
+                tempo_decorrido += datetime.now() - horario_inicio_teste  #acumula o tempo corretamente
                 horario_inicio_teste = datetime.now()  # Atualiza para continuar a contagem
 
        
-        tempo_decorrido_str = str(tempo_decorrido).split('.')[0]  # Converte tempo decorrido para string sem milissegundos
+        tempo_decorrido_str = str(tempo_decorrido).split('.')[0]  #converte tempo decorrido para string sem milissegundos
         tempo_decorrido_segundos = tempo_decorrido.total_seconds() #converte o tempo para segundos
 
        
-        if tempo_decorrido_segundos > 0 and potencia_atual is not None and potencia_atual > 0:  # Evita divisão por zero e só calcula se a potência for maior que zero
+        if tempo_decorrido_segundos > 0 and potencia_atual is not None and potencia_atual > 0:  #evita divisão por zero e só calcula se a potência for maior que zero
             consumo_mensal_estimado = ((energia_acumulada / tempo_decorrido_segundos) * 30 * 24) # calcula o consumo mensal ao longo do tempo
             consumo_mensal_estimado_kwh = consumo_mensal_estimado / 1000 #converte o consumo para quilo-watt-hora
             custo_estimado = consumo_mensal_estimado * tarifa_energia #calcula o custo mensal por quilo-watt-hora
@@ -262,59 +260,59 @@ def monitorar_arquivo():
                 sheet.range(f'A{last_row}').value = [dado['ID'], dado['Potencia'], dado['Horario'], dado['Delta']] #começa na célula A e escreve os dados na linha certa
                 sheet.range(f'C{last_row}').number_format = 'dd-mm hh:mm:ss' #na célula C é aplicado a data e hora
 
-                # Calcula Pmed (Média entre potências consecutivas)
+                #calcula Pmed (Média entre potências consecutivas)
                 if last_row > 2:  # Só calcula a média a partir da segunda linha
                     p1 = sheet.range(f'B{last_row - 1}').value  # Potência anterior
-                    p2 = dado['Potencia']  # Potência atual
+                    p2 = dado['Potencia']  #potência atual
                     if p1 is not None: #garante que tenha valor de potencia
                         pmed = (p1 + p2) / 2 #calcula a media entre duas potencias
-                        sheet.range(f'E{last_row}').value = pmed # o valor é escrito na coluna E da linha atual
+                        sheet.range(f'E{last_row}').value = pmed #o valor é escrito na coluna E da linha atual
                     else:
-                        sheet.range(f'E{last_row}').value = ""  # Deixar vazio se não puder calcular
+                        sheet.range(f'E{last_row}').value = ""  #Deixar vazio se não puder calcular
 
-                # Calcula Energia de cada intervalo
-                pmed_atual = sheet.range(f'E{last_row}').value  # a potencia media é obtida a partir da coluna E
-                delta_atual = dado['Delta']  # obtém o valor do tempo decorrido
+                #calcula Energia de cada intervalo
+                pmed_atual = sheet.range(f'E{last_row}').value  #a potencia media é obtida a partir da coluna E
+                delta_atual = dado['Delta']  #obtém o valor do tempo decorrido
                 if pmed_atual is not None and delta_atual > 0: #só calcula se tiver valor de potencia e evita divisão por zero
-                    energia = (pmed_atual * delta_atual) / 3600  # Converte para Wh
+                    energia = (pmed_atual * delta_atual) / 3600  #converte para Wh
                     sheet.range(f'F{last_row}').value = energia #a energia consumida é escrita na coluna F do arquivo .xlsx
 
-                    # Somando energia acumulada
+                    #somando energia acumulada
                     if last_row > 2: #garante que tem dados de medição de energia
-                        energia_anterior = sheet.range(f'G{last_row - 1}').value  # Energia acumulada anterior na célula G
+                        energia_anterior = sheet.range(f'G{last_row - 1}').value  #energia acumulada anterior na célula G
                         energia_acumulada = (energia_anterior if energia_anterior else 0) + energia  #se a energia anterir for None assume 0 e soma  ao valor anterior para acumular a energia
                         sheet.range(f'G{last_row}').value = energia_acumulada #a energia acumulada é armazenada na coluna G do arquivo .xlsx
                     else:
-                        sheet.range(f'G{last_row}').value = energia  # Primeira entrada
+                        sheet.range(f'G{last_row}').value = energia  #primeira entrada
 
-            wb.save()  # Salva o arquivo
+            wb.save()  #salva o arquivo
             print(f"Arquivo '{nome_arquivo}' atualizado com os novos dados.")  #imprime mensagem no terminal com o nome do arquivo criado
 
-    except Exception as e: # verifica erro no try
+    except Exception as e: #verifica erro no try
         print(f"Erro inesperado: {e}") #exibe mensagem de erro no terminal python
 
-    janela.after(1000, monitorar_arquivo)  # Chama novamente após 1s
+    janela.after(1000, monitorar_arquivo)  #chama novamente após 1s
 
+#Método que salva uma linha de dados no arquivo atual
 def salvar_dados(linha):
-    """Salva uma linha de dados no arquivo atual."""
     verificar_novo_arquivo() #verifica se ja tem um arquivo e cria se necessário
     with open(arquivo_atual, 'a') as arquivo:  #abre o arquivo para adicionar os dados no final
         arquivo.write(f"{linha}\n") #escreve a linha recebendo e adiciona uma nova linha
-        
+
+#Método que salva a linha no arquivo apropriado    
 def salvar_linha_em_arquivo(linha):
-    """Salva a linha no arquivo apropriado."""
     verificar_novo_arquivo() #verifica se ja tem um arquivo e cria se necessário
     with open(arquivo_atual, 'a') as arquivo: #abre o arquivo para adicionar os dados no final
         arquivo.write(f"{linha}\n") #escreve a linha recebendo e adiciona uma nova linha
-        arquivo.flush()
-        
-def gerar_relatorio():
-    """Gera um relatório contendo os dados do teste. Salva as informações contidas no arquivo .txt"""
-    pausas = "\n".join(horarios_pausa) if horarios_pausa else "Nenhuma pausa registrada." #Captura a lista dos horários de pausa
-    continuacoes = "\n".join(horarios_continuacao) if horarios_continuacao else "Nenhuma continuação registrada." #Captura a lista dos horários de continuação
-    atualizacoes = "\n".join(horarios_atualizacao) if horarios_atualizacao else "Nenhuma atualização registrada." #Captura a lista dos horários de atualização
+        arquivo.flush() #garante o salvamento de informações
 
-    # Captura os dados relevantes do teste
+#Método que Gera um relatório contendo os dados do teste. Salva as informações contidas no arquivo .txt
+def gerar_relatorio():
+    pausas = "\n".join(horarios_pausa) if horarios_pausa else "Nenhuma pausa registrada." #captura a lista dos horários de pausa
+    continuacoes = "\n".join(horarios_continuacao) if horarios_continuacao else "Nenhuma continuação registrada." #captura a lista dos horários de continuação
+    atualizacoes = "\n".join(horarios_atualizacao) if horarios_atualizacao else "Nenhuma atualização registrada." #captura a lista dos horários de atualização
+
+    #captura os dados relevantes do teste
     refrigerador_testado = item_testado_label.cget("text") #captura o nome do refrigerador cadastrado pelo label da tela do analisador
     data_hora_inicio = horario_inicio_formatado or "Indefinido" #captura o horario e data de inicio de teste da tela do analisador
     data_hora_fim = horario_finalizar or "Indefinido" #captura o horario e data de fim de teste da tela do analisador
@@ -328,14 +326,14 @@ def gerar_relatorio():
     erro_relativo_consumo = erro_relativo_consumo_label.cget("text") #captura o valor da média móvel de erro relativo do consumo pelo label da tela do analisador
     custo_mensal = custo_mensal_label.cget("text") #captura o valor da média móvel do custo mensal pelo label da tela do analisador
 
-    # Captura as transições de alertas
-    transicoes_consumo = "\n".join(transicoes_alertas_consumo) if transicoes_alertas_consumo else "Nenhuma transição de consumo registrada." #Captura a lista de transições de alertas de consumo
-    transicoes_rendimento = "\n".join(transicoes_alertas_rendimento) if transicoes_alertas_rendimento else "Nenhuma transição de rendimento registrada." #Captura a lista de transições de alertas de rendimento
-    transicoes_temp1 = "\n".join(transicoes_alertas_temp_sensor_1) if transicoes_alertas_temp_sensor_1 else "Nenhuma transição de temperatura do Sensor 1 registrada." #Captura a lista de transições de alertas de temperatura do sensor 1
-    transicoes_temp2 = "\n".join(transicoes_alertas_temp_sensor_2) if transicoes_alertas_temp_sensor_2 else "Nenhuma transição de temperatura do Sensor 2 registrada." #Captura a lista de transições de alertas de temperatura do sensor 2
-    transicoes_sensor_porta = "\n".join(transicoes_alertas_sensor_porta) if transicoes_alertas_sensor_porta else "Nenhuma transição do sensor de porta registrada." #Captura a lista de transições de alertas do sensor de porta 
+    #captura as transições de alertas
+    transicoes_consumo = "\n".join(transicoes_alertas_consumo) if transicoes_alertas_consumo else "Nenhuma transição de consumo registrada." #captura a lista de transições de alertas de consumo
+    transicoes_rendimento = "\n".join(transicoes_alertas_rendimento) if transicoes_alertas_rendimento else "Nenhuma transição de rendimento registrada." #captura a lista de transições de alertas de rendimento
+    transicoes_temp1 = "\n".join(transicoes_alertas_temp_sensor_1) if transicoes_alertas_temp_sensor_1 else "Nenhuma transição de temperatura do Sensor 1 registrada." #captura a lista de transições de alertas de temperatura do sensor 1
+    transicoes_temp2 = "\n".join(transicoes_alertas_temp_sensor_2) if transicoes_alertas_temp_sensor_2 else "Nenhuma transição de temperatura do Sensor 2 registrada." #captura a lista de transições de alertas de temperatura do sensor 2
+    transicoes_sensor_porta = "\n".join(transicoes_alertas_sensor_porta) if transicoes_alertas_sensor_porta else "Nenhuma transição do sensor de porta registrada." #captura a lista de transições de alertas do sensor de porta 
 
-    # Cria o conteúdo do relatório no arquivo .txt
+    #cria o conteúdo do relatório no arquivo .txt
     conteudo_relatorio = f"""
     Relatório de Teste - {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} 
     ---------------------------------------------------
@@ -384,8 +382,7 @@ def gerar_relatorio():
     ---------------------------------------------------
     """
 
-    # Salva o relatório em um arquivo de texto cujo nome tem o valor da data e do horario atual
-    nome_arquivo = f"relatorio_teste_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    nome_arquivo = f"relatorio_teste_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt" #salva o relatório em um arquivo de texto cujo nome tem o valor da data e do horario atual
     with open(nome_arquivo, 'w') as arquivo: #abre o arquivo no modo escrita
         arquivo.write(conteudo_relatorio) #escreve o conteudo do relatorio criado no arquivo .txt
 
@@ -397,7 +394,7 @@ def abrir_tela_teste_personalizado(): #abre a tela do teste personalizado
     def iniciar_teste_personalizado(): #função para iniciar o teste personalizado 
         global horarios_teste_personalizado #armazena numa variavel global dentro e fora desse método os horarios configurados pelo usuario
 
-        # Verificar se um item está selecionado na lista
+        #verificar se um item está selecionado na lista
         selecionado = lista_refrigeradores.curselection() #captura o indice do refrigerador selecionado na lista
         if not selecionado: #senao for selecionado nenhum refrigerador
             messagebox.showwarning("Atenção", "Você precisa selecionar um refrigerador antes de configurar o teste personalizado!") #emite uma mensagem na tela
@@ -408,7 +405,7 @@ def abrir_tela_teste_personalizado(): #abre a tela do teste personalizado
         horario_fim = entrada_fim.get() #obtem o horario de fim de teste que foi digitado no camp
 
         if not horario_inicio or not horario_fim: #senão for escrito corretamente o horario de inicio ou fim
-            messagebox.showwarning("Erro", "Por favor, insira os horários de início e fim.")  #emite uma mensagem na tel
+            messagebox.showwarning("Erro", "Por favor, insira os horários de início e fim.")  #emite uma mensagem de alerta de erro na tela
             return #evita a execução do restante do código
 
         horarios_teste_personalizado = { #cria um pacote de dados
@@ -417,7 +414,7 @@ def abrir_tela_teste_personalizado(): #abre a tela do teste personalizado
             "fim": horario_fim #armazena o horario de fim de teste
         }
 
-        # Atualizar os labels na tela principal
+        #atualizar os labels na tela principal
         dia_programado_label.config(text=f"Dia Programado: {dia_selecionado}") #na tela do analisador exibe a informação de dia programado
         horario_inicio_programado_label.config(text=f"Horário de Início: {horario_inicio}") #na tela do analisador exibe a informação de horario de inicio programado
         horario_fim_programado_label.config(text=f"Horário de Fim: {horario_fim}") #na tela do analisador exibe a informação de horario de fim programado
@@ -425,7 +422,7 @@ def abrir_tela_teste_personalizado(): #abre a tela do teste personalizado
         print(f"Horários Configurados: {horarios_teste_personalizado}") #imprime mensagem no terminal python com o pacote de dados
         janela_personalizada.destroy() #fecha a janela de teste personalizado
 
-        # Iniciar a verificação do horário programado
+        #iniciar a verificação do horário programado
         verificar_horario_teste() #chama a função que verifica se o horario programado chegou
 
     janela_personalizada = Toplevel(janela) #é uma janela secundária que abre para configurar o teste personalizado
@@ -451,7 +448,7 @@ def verificar_horario_teste():
     global horarios_teste_personalizado, teste_iniciado #variaveis globais a serem utilizadas nesse método e fora dele
 
     try:
-        #Recupera os horários programados vindos do pacote de dados 
+        #recupera os horários programados vindos do pacote de dados 
         dia = horarios_teste_personalizado.get('dia') #obtém o dia do teste personalizado
         inicio = horarios_teste_personalizado.get('inicio') #obtém o horário de início do teste personalizado
         fim = horarios_teste_personalizado.get('fim') #obtém o horário de fim do teste personalizado
@@ -459,18 +456,18 @@ def verificar_horario_teste():
         horario_inicio_dt = datetime.strptime(f"{dia} {inicio}", "%d/%m/%Y %H:%M") #converte dia e inicio do teste personalizado para o objeto datetime
         horario_fim_dt = datetime.strptime(f"{dia} {fim}", "%d/%m/%Y %H:%M") #converte dia e fim do teste personalizado para o objeto datetime
     except (ValueError, TypeError): #tratamento de erros durante a conversão de dados de data e horario
-        tempo_restante_label.config(text="Tempo Restante: Configuração inválida") #se tiver erro exibe mensagem
+        tempo_restante_label.config(text="Tempo Restante: Configuração inválida") #se tiver erro exibe mensagem no label
         return #evita a execução do restante do código
 
     agora = datetime.now() #passa para a variavel agora a data e o horario atual 
 
-    if not teste_iniciado and agora >= horario_inicio_dt: # Verificar se é hora de iniciar o teste apenas uma vez
+    if not teste_iniciado and agora >= horario_inicio_dt: #verificar se é hora de iniciar o teste apenas uma vez
         tempo_restante_label.config(text="Tempo Restante: Iniciando...") #altera o texto da label e informa na tela que o horario programado foi detectado
         iniciar_teste() #função que inicia o teste de medição do refrigerador
     
-    if teste_iniciado and agora >= horario_fim_dt: # Verificar se é hora de finalizar o teste apenas uma vez
+    if teste_iniciado and agora >= horario_fim_dt: #verificar se é hora de finalizar o teste apenas uma vez
         finalizar_teste() #função que finaliza o teste de medição do refrigerador
-        tempo_restante_label.config(text="Tempo Restante: Teste finalizado.")
+        tempo_restante_label.config(text="Tempo Restante: Teste finalizado.") #exibe mensagem no label
         return #evita a execução do restante do código
 
     # Atualizar o tempo restante para o próximo evento (contagem regressiva)
@@ -483,7 +480,7 @@ def verificar_horario_teste():
         tempo_restante_label.config(
             text=f"Tempo Restante: {int(horas):02d}:{int(minutos):02d}:{int(segundos):02d}"
         ) # o texto da label é atualizado e exibido em HORAS:MINUTOS:SEGUNDOS
-        janela.after(1000, verificar_horario_teste)  # Chama novamente após 1s
+        janela.after(1000, verificar_horario_teste)  #chama novamente após 1s
 
 #Método que carrega os refrigeradores do arquivo JSON, se existir
 def carregar_refrigeradores():
@@ -516,7 +513,7 @@ def abrir_tela_cadastro():
     def cancelar_cadastro(): #método que cancela um cadastrod e refrigerador e não salva os dados
         janela_cadastro.destroy() #fecha a tela de cadastro
 
-    janela_cadastro = tk.Toplevel(janela) # Criar uma nova janela para cadastro de refrigerador
+    janela_cadastro = tk.Toplevel(janela) #criar uma nova janela para cadastro de refrigerador
     janela_cadastro.title("Cadastrar Refrigerador") #titulo da tela de cadastro
 
     tk.Label(janela_cadastro, text="Nome:").grid(row=0, column=0, padx=10, pady=5) #cria um rótulo do nome e um posicionamento
@@ -538,606 +535,557 @@ def abrir_tela_cadastro():
     tk.Button(janela_cadastro, text="Editar Refrigerador", command=abrir_tela_edicao).grid(row=4, column=0, padx=10, pady=10) #cria o botão na tela de cadastro para editar os dados cadastrados e um posicionamento
     tk.Button(janela_cadastro, text="Excluir Refrigerador", command=excluir_refrigerador).grid(row=4, column=1, padx=10, pady=10) #cria o botão na tela de cadastro para excluir os dados cadastrados e um posicionamento
 
-#    
+#Método para editar um refrigerador cadastrado   
 def abrir_tela_edicao():
-    selecionado = lista_refrigeradores.curselection()
-    if not selecionado:
-        messagebox.showwarning("Atenção", "Selecionar um refrigerador para editar!")
-        return
+    selecionado = lista_refrigeradores.curselection() #seleciona um refrigerador cadastrado
+    if not selecionado: #senao tiver nenhum refrigerador selecionado
+        messagebox.showwarning("Atenção", "Selecionar um refrigerador para editar!") #emite uma mensagem de alerta de erro na tela
+        return #evita a execução do restante do código
 
-    idx = selecionado[0]
-    refrigerador = refrigeradores[idx]
+    idx = selecionado[0] #pega o indice do refrigerador cadastrado
+    refrigerador = refrigeradores[idx] #passa o indice para acessar os dados
 
-    def salvar_edicao():
-        nome = entrada_nome.get()
-        modelo = entrada_modelo.get()
-        capacidade = entrada_capacidade.get()
+    def salvar_edicao(): #Método para salvar as informações de um refrigerador cadastrado  
+        nome = entrada_nome.get() #pega o nome do refrigerador digitado 
+        modelo = entrada_modelo.get() #pega o modelo do refrigerador digitado 
+        capacidade = entrada_capacidade.get() #pega a capacidade do refrigerador digitado 
 
-        if nome and modelo and capacidade:
-            refrigeradores[idx] = {"nome": nome, "modelo": modelo, "capacidade": capacidade}
-            salvar_refrigeradores()
-            messagebox.showinfo("Sucesso", "Refrigerador editado com sucesso!")
-            janela_edicao.destroy()
-            atualizar_lista()
-        else:
-            messagebox.showwarning("Erro", "Todos os campos devem ser preenchidos.")
+        if nome and modelo and capacidade: #nome modelo e capacidade foram preenchidos ?
+            refrigeradores[idx] = {"nome": nome, "modelo": modelo, "capacidade": capacidade} #atualiza os dados editados
+            salvar_refrigeradores() #chama a função que salva os dados editados
+            messagebox.showinfo("Sucesso", "Refrigerador editado com sucesso!") #emite uma mensagem na tela
+            janela_edicao.destroy() #fecha a tela de edição
+            atualizar_lista() #chama a função que atualiza a lista de refrigeradores
+        else: #se algum campo nao for preenchido
+            messagebox.showwarning("Erro", "Todos os campos devem ser preenchidos.") #emite um mensagem de alerta de erro
 
-    janela_edicao = tk.Toplevel(janela)
-    janela_edicao.title("Editar Refrigerador")
+    janela_edicao = tk.Toplevel(janela) # Criar uma nova janela para edição de refrigerador
+    janela_edicao.title("Editar Refrigerador") #titulo da janela
 
-    tk.Label(janela_edicao, text="Nome:").grid(row=0, column=0, padx=10, pady=5)
-    entrada_nome = tk.Entry(janela_edicao)
-    entrada_nome.insert(0, refrigerador['nome'])
-    entrada_nome.grid(row=0, column=1, padx=10, pady=5)
+    tk.Label(janela_edicao, text="Nome:").grid(row=0, column=0, padx=10, pady=5)  #cria um rótulo do nome e um posicionamento
+    entrada_nome = tk.Entry(janela_edicao) #cria um campo de entrada de nome 
+    entrada_nome.insert(0, refrigerador['nome']) #o nome do refrigerador selecionado é preenchido no campo de entrada e o cursor agora esta no indice 0
+    entrada_nome.grid(row=0, column=1, padx=10, pady=5) #posicionamento do campo de entrada de nome
 
-    tk.Label(janela_edicao, text="Modelo:").grid(row=1, column=0, padx=10, pady=5)
-    entrada_modelo = tk.Entry(janela_edicao)
-    entrada_modelo.insert(0, refrigerador['modelo'])
-    entrada_modelo.grid(row=1, column=1, padx=10, pady=5)
+    tk.Label(janela_edicao, text="Modelo:").grid(row=1, column=0, padx=10, pady=5) #cria um rótulo do modelo e um posicionamento
+    entrada_modelo = tk.Entry(janela_edicao) #cria um campo de entrada de nome 
+    entrada_modelo.insert(0, refrigerador['modelo']) #o modelo do refrigerador selecionado é preenchido no campo de entrada e o cursor agora esta no indice 0
+    entrada_modelo.grid(row=1, column=1, padx=10, pady=5) #posicionamento do campo de entrada de modelo
 
-    tk.Label(janela_edicao, text="Capacidade (L):").grid(row=2, column=0, padx=10, pady=5)
-    entrada_capacidade = tk.Entry(janela_edicao)
-    entrada_capacidade.insert(0, refrigerador['capacidade'])
-    entrada_capacidade.grid(row=2, column=1, padx=10, pady=5)
+    tk.Label(janela_edicao, text="Capacidade (L):").grid(row=2, column=0, padx=10, pady=5) #cria um rótulo da capacidade e um posicionamento
+    entrada_capacidade = tk.Entry(janela_edicao) #cria um campo de entrada de capacidade 
+    entrada_capacidade.insert(0, refrigerador['capacidade']) #a capacidade do refrigerador selecionado é preenchido no campo de entrada e o cursor agora esta no indice 0
+    entrada_capacidade.grid(row=2, column=1, padx=10, pady=5) #posicionamento do campo de entrada de capacidade
 
-    tk.Button(janela_edicao, text="Salvar", command=salvar_edicao).grid(row=3, column=0, padx=10, pady=10)
-    tk.Button(janela_edicao, text="Cancelar", command=janela_edicao.destroy).grid(row=3, column=1, padx=10, pady=10)
-    
+    tk.Button(janela_edicao, text="Salvar", command=salvar_edicao).grid(row=3, column=0, padx=10, pady=10) #cria o botão na tela de edição para salvar os dados editados e um posicionamento
+    tk.Button(janela_edicao, text="Cancelar", command=janela_edicao.destroy).grid(row=3, column=1, padx=10, pady=10) #cria o botão na tela de edição para excluir os dados editados e um posicionamento
+
+#Método para excluir um refrigerador cadastrado      
 def excluir_refrigerador():
-    selecionado = lista_refrigeradores.curselection()
-    if not selecionado:
-        messagebox.showwarning("Atenção", "Selecione um refrigerador para excluir!")
-        return
+    selecionado = lista_refrigeradores.curselection() #seleciona um refrigerador cadastrado
+    if not selecionado: #senao tiver nenhum refrigerador selecionado
+        messagebox.showwarning("Atenção", "Selecione um refrigerador para excluir!") #emite uma mensagem de alerta de erro na tela
+        return #evita a execução do restante do código
 
-    idx = selecionado[0]
-    resposta = messagebox.askyesno("Confirmação", "Tem certeza que deseja excluir este refrigerador?")
-    if resposta:
-        del refrigeradores[idx]
-        salvar_refrigeradores()
-        atualizar_lista()
-        messagebox.showinfo("Sucesso", "Refrigerador excluído com sucesso!")
+    idx = selecionado[0] #pega o indice do refrigerador cadastrado
+    resposta = messagebox.askyesno("Confirmação", "Tem certeza que deseja excluir este refrigerador?") #emite uma mensagem na tela de sim ou nao
+    if resposta: #se for sim
+        del refrigeradores[idx] #deleta o refrigerador selecionado
+        salvar_refrigeradores() #chama a função que salva os dados editados
+        atualizar_lista() #chama a função que atualiza a lista de refrigeradores
+        messagebox.showinfo("Sucesso", "Refrigerador excluído com sucesso!") #emite uma mensagem na tela
 
+#Método que atualiza a lista de refrigeradores na tela
 def atualizar_lista():
-    """Atualiza a lista de refrigeradores na interface."""
-    lista_refrigeradores.delete(0, tk.END)
-    for idx, refri in enumerate(refrigeradores, start=1):
-        lista_refrigeradores.insert(tk.END, f"{idx}. {refri['nome']} - {refri['modelo']} ({refri['capacidade']}L)")
+    lista_refrigeradores.delete(0, tk.END) #limpa a lista de refrigeradores 
+    for idx, refri in enumerate(refrigeradores, start=1): #percorre a lista de refrigeradores e enumera eles
+        lista_refrigeradores.insert(tk.END, f"{idx}. {refri['nome']} - {refri['modelo']} ({refri['capacidade']}L)") #reinsere todos os refrigeradores e os dados deles
 
-# Função para calcular a média móvel de uma lista
+# Função para calcular a média móvel de uma lista de valores
 def media_movel(valores):
-    if len(valores) < tamanho_janela:
-        return sum(valores) / len(valores) if valores else 0.0
-    else:
-        return sum(valores[-(tamanho_janela):]) / tamanho_janela
+    if len(valores) < tamanho_janela: #se a lista for menor que o tamanho
+        return sum(valores) / len(valores) if valores else 0.0 #retorna  a soma dos valores. Se a lista estiver vazia fica 0
+    else: #se a lista for maior que o tamanho
+        return sum(valores[-(tamanho_janela):]) / tamanho_janela #calcula a media de todos os valores
 
-# Variáveis de controle de teste
-teste_iniciado = False
-horario_inicio_teste = None
-tempo_decorrido = timedelta(0)
-horario_inicio_formatado = ""  # Variável para manter a data e hora fixas
-teste_pausado = False
+teste_iniciado = False #variavel global para ver se o teste está em andamento
+horario_inicio_teste = None #variavel global que serve pra armazenar o horário de inicio de teste
+tempo_decorrido = timedelta(0) #variavel global que armazena o valor do início de um teste
+horario_inicio_formatado = ""  #variável global para manter a data e hora fixas
+teste_pausado = False #variavel global para ver se o teste está em pausa
 
-# Variáveis para armazenar o horário da última transição
-horario_transicao_sensor_1 = None
-estado_atual_sensor_1 = None
+horario_transicao_sensor_1 = None #variável global para armazenar o horário da última transição do sensor de temperatura 1
+estado_atual_sensor_1 = None #variável global para armazenar o estado atual do sensor de temperatura 1
 
-horario_transicao_sensor_2 = None
-estado_atual_sensor_2 = None
+horario_transicao_sensor_2 = None #variável global para armazenar o horário da última transição do sensor de temperatura 2
+estado_atual_sensor_2 = None #variável global para armazenar o estado atual do sensor de temperatura 2
 
-# Variáveis para armazenar o horário e o estado atual do consumo
-horario_transicao_consumo = None
-estado_atual_consumo = None
+horario_transicao_consumo = None #variável global para armazenar o horário da última transição do consumo
+estado_atual_consumo = None #variável global para armazenar o estado atual do consumo
 
-# Variáveis globais para armazenar estado e horário da última atualização
-horario_transicao_atualizar = None
-estado_atual_atualizar = None
+horario_transicao_atualizar = None #variáveis global para armazenar o horário da última atualização de transição
+estado_atual_atualizar = None #variável global para armazenar o estado atual de atualização
 
-# Variáveis para armazenar o horário e o estado atual do Sensor de Porta
-horario_transicao_sensor_porta = None
-estado_atual_sensor_porta = None
+horario_transicao_sensor_porta = None #variável global para armazenar o horário de transição sensor de porta
+estado_atual_sensor_porta = None #variável global para armazenar estado atual do sensor de porta
 
-# Variáveis globais para armazenar data e horário de "Pausar", "Continuar" e "Finalizar"
-horario_continuar = ""
-horario_pausar = ""
-horario_finalizar = ""
+horario_continuar = "" #variável global para armazenar data e horário de "Pausar"
+horario_pausar = "" #variável global para armazenar data e horário de "Continuar"
+horario_finalizar = "" #variável global para armazenar data e horário de "Finalizar"
 
-
+#Método que inicia o teste, verificando se há itens cadastrados e selecionados
 def iniciar_teste():
-    """Inicia o teste, verificando se há itens cadastrados e selecionados."""
-    global teste_iniciado, horario_inicio_teste, horario_inicio_formatado, tempo_decorrido
+    global teste_iniciado, horario_inicio_teste, horario_inicio_formatado, tempo_decorrido #variáveis globais a serem utilizadas aqui e fora desse método
 
     # Zerar os valores de energia, custo_teste e os labels de pausar e finalizar ao iniciar um novo teste
-    energia_label.config(text="Energia: 0.000000 kWh")
-    custo_teste_label.config(text="Custo Total: R$ 0.00")
-    pausar_label.config(text="Pausado em: N/A")
-    finalizar_label.config(text="Finalizado em: N/A")
+    energia_label.config(text="Energia: 0.000000 kWh") #rótulo da tela para exibir a energia
+    custo_teste_label.config(text="Custo Total: R$ 0.00") #rótulo da tela para exibir o custo
+    pausar_label.config(text="Pausado em: N/A") #rótulo da tela para o horário de pausa
+    finalizar_label.config(text="Finalizado em: N/A") #rótulo da tela para o horário de finalização
     
-    # Zerar variáveis relacionadas ao tempo
-    tempo_decorrido = timedelta(0)
-    horario_inicio_teste = None
+   
+    tempo_decorrido = timedelta(0) #zera a variável de tempo decorrido
+    horario_inicio_teste = None #zera a variável de horario de inicio de teste
     
-    # Verifica se há refrigeradores cadastrados
-    if not refrigeradores:
-        messagebox.showwarning("Atenção", "Você precisa cadastrar pelo menos um refrigerador antes de iniciar o teste!")
-        return
+    if not refrigeradores: #verifica se há refrigeradores cadastrados
+        messagebox.showwarning("Atenção", "Você precisa cadastrar pelo menos um refrigerador antes de iniciar o teste!") #emite uma mensagem de alerta de erro na tela
+        return #evita a execução do restante do código
 
-    # Verifica se um item está selecionado na lista
-    selecionado = lista_refrigeradores.curselection()
-    if not selecionado:
-        messagebox.showwarning("Atenção", "Selecione um refrigerador antes de iniciar o teste!")
-        return
+    selecionado = lista_refrigeradores.curselection() #verifica se um item está selecionado na lista
+    if not selecionado: #verifica se há refrigeradores selecionado
+        messagebox.showwarning("Atenção", "Selecione um refrigerador antes de iniciar o teste!") #emite uma mensagem de alerta de erro na tela
+        return #evita a execução do restante do código
 
     # Extração do índice selecionado
-    idx = selecionado[0]  # Pega o primeiro índice da tupla retornada
-    print(f"Índice selecionado: {idx}")  # Para depuração, remova após verificar
+    idx = selecionado[0]  #pega o indice do refrigerador cadastrado
+    print(f"Índice selecionado: {idx}")  #imprime mensagem no terminal python com o indice selecionado
 
-    if not teste_iniciado:
-        # Configuração inicial do teste
-        teste_iniciado = True
-        horario_inicio_teste = datetime.now()
-        horario_inicio_formatado = horario_inicio_teste.strftime('%d-%m-%Y %H:%M:%S')
+    if not teste_iniciado: #o teste nao foi inicializado?
+        teste_iniciado = True #variavel que marca o teste como iniciado
+        horario_inicio_teste = datetime.now() #registra o horario e a data de inicio de teste
+        horario_inicio_formatado = horario_inicio_teste.strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data de inicio de teste
 
         # Atualiza o label com o índice e detalhes do refrigerador
-        refrigerador = refrigeradores[idx]
-        item_testado_label.config(
+        refrigerador = refrigeradores[idx] #passa o indice para acessar os dados
+        item_testado_label.config( 
             text=f"Item testado: {idx + 1}. {refrigerador['nome']} - {refrigerador['modelo']}"
-        )
+        ) #mostra na tela os dados do refrigerador que esta sendo testado
 
-        atualizar_dados()
-        #messagebox.showinfo("Início do Teste", "Teste iniciado com sucesso!")
+        atualizar_dados() #chama a função que atualiza os dados
 
         # Atualizar estados dos botões
-        pausar_button.config(state=tk.NORMAL)
-        finalizar_button.config(state=tk.NORMAL)
-        continuar_button.config(state=tk.DISABLED)
-
-
-
+        pausar_button.config(state=tk.NORMAL) #habilita o botão pausar
+        finalizar_button.config(state=tk.NORMAL) #habilita o botão finalizar
+        continuar_button.config(state=tk.DISABLED) #desabilita o botão continuar
  
-# Configuração da janela principal
-janela = tk.Tk()
-janela.title("Cadastro de Refrigeradores")
+janela = tk.Tk() #cria a janela de cadastro de refrigeradores
+janela.title("Cadastro de Refrigeradores") #nome da janela criada
 
-# Carregar os refrigeradores salvos
-carregar_refrigeradores()
+carregar_refrigeradores() #carregar os refrigeradores salvos
 
-tk.Button(janela, text="Cadastrar Refrigerador", command=abrir_tela_cadastro).pack(pady=10)
+tk.Button(janela, text="Cadastrar Refrigerador", command=abrir_tela_cadastro).pack(pady=10) #cria um botão na janela de cadastro de refrigeradores
 
-lista_refrigeradores = tk.Listbox(janela, width=50, height=10)
-lista_refrigeradores.pack(pady=10)
-atualizar_lista()
+lista_refrigeradores = tk.Listbox(janela, width=50, height=10) #cria uma caixa com a lista de refrigeradores cadastrados 
+lista_refrigeradores.pack(pady=10) #posiciona a lista de refrigeradores
+atualizar_lista() #chama a função que atualiza a lista de refrigeradores
 
-#tk.Button(janela, text="Iniciar Teste", command=iniciar_teste).pack(pady=10) 
-# Adicionar o botão de Iniciar Teste Personalizado ao lado de Iniciar Teste
-tk.Button(janela, text="Iniciar Teste", command=iniciar_teste).pack(side=tk.LEFT, padx=5, pady=10)
-tk.Button(janela, text="Iniciar Teste Personalizado", command=abrir_tela_teste_personalizado).pack(side=tk.LEFT, padx=5, pady=10)
+tk.Button(janela, text="Iniciar Teste", command=iniciar_teste).pack(side=tk.LEFT, padx=5, pady=10) #adicionar o botão de Iniciar na tela da janela de cadastro
+tk.Button(janela, text="Iniciar Teste Personalizado", command=abrir_tela_teste_personalizado).pack(side=tk.LEFT, padx=5, pady=10) #adicionar o botão de Iniciar teste personalizado na tela da janela de cadastro
 
+#Método que continua um teste que foi pausado
 def continuar_teste():
-    """Retoma o teste após ter sido pausado."""
-    global teste_iniciado, horario_inicio_teste, horario_continuar, horarios_continuacao
-    if not teste_iniciado:
-        teste_iniciado = True
-        horario_inicio_teste = datetime.now()
-        horario_continuar = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-        continuar_label.config(text=f"Continuado em: {horario_continuar}")
+    global teste_iniciado, horario_inicio_teste, horario_continuar, horarios_continuacao #variáveis globais a serem utilizadas aqui e fora desse método
+    if not teste_iniciado: #o teste ja foi inicializado?
+        teste_iniciado = True #variavel que marca o teste como iniciado
+        horario_inicio_teste = datetime.now() #registra o horario e a data de inicio de teste
+        horario_continuar = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data de inicio de teste
+        continuar_label.config(text=f"Continuado em: {horario_continuar}") #mostra na tela o horario que o teste foi continuado
 
-        # Salvar o horário de continuação na lista
-        horarios_continuacao.append(horario_continuar)
+        horarios_continuacao.append(horario_continuar)  #salva o horário de continuação na lista
 
-        pausar_button.config(state=tk.NORMAL)
-        continuar_button.config(state=tk.DISABLED)
-        #messagebox.showinfo("Teste Retomado", "O teste foi retomado com sucesso!")
-        
+        pausar_button.config(state=tk.NORMAL) #habilita o botão pausar
+        continuar_button.config(state=tk.DISABLED) #desabilita o botão continuar
+
+#Método que pausa um teste que foi iniciado
 def pausar_teste():
-    """Pausa o teste."""
-    global teste_iniciado, tempo_decorrido, horario_pausar, horarios_pausa
-    if teste_iniciado:
-        teste_iniciado = False
-        tempo_decorrido += datetime.now() - horario_inicio_teste
-        horario_pausar = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-        pausar_label.config(text=f"Pausado em: {horario_pausar}")
+    global teste_iniciado, tempo_decorrido, horario_pausar, horarios_pausa #variáveis globais a serem utilizadas aqui e fora desse método
+    if teste_iniciado: #o teste ja foi inicializado?
+        teste_iniciado = False #variavel que marca o teste como não iniciado
+        tempo_decorrido += datetime.now() - horario_inicio_teste #calcula a diferença do tempo atual para o horario que foi iniciado o teste
+        horario_pausar = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data de pausa de teste
+        pausar_label.config(text=f"Pausado em: {horario_pausar}") #mostra na tela o horario que o teste foi pausado
 
-        # Salvar o horário de pausa na lista
-        horarios_pausa.append(horario_pausar)
+        horarios_pausa.append(horario_pausar) #salva o horário de pausa na lista
 
-        pausar_button.config(state=tk.DISABLED)
-        finalizar_button.config(state=tk.NORMAL)
-        continuar_button.config(state=tk.NORMAL)
+        pausar_button.config(state=tk.DISABLED) #desabilita o botão pausar
+        finalizar_button.config(state=tk.NORMAL) #habilita o botão finalizar
+        continuar_button.config(state=tk.NORMAL) #habilita o botão continuar
 
         
-# Chamar a função ao finalizar o teste
+#Método que chama a função ao finalizar o teste e gera o relatório
 def finalizar_teste():
-    global teste_iniciado, tempo_decorrido, horario_inicio_teste, horario_finalizar
-    if teste_iniciado:
-        tempo_decorrido += datetime.now() - horario_inicio_teste
-    teste_iniciado = False
-    horario_inicio_teste = None
-    horario_finalizar = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    finalizar_label.config(text=f"Finalizado em: {horario_finalizar}")
+    global teste_iniciado, tempo_decorrido, horario_inicio_teste, horario_finalizar #variáveis globais a serem utilizadas aqui e fora desse método
+    if teste_iniciado: #o teste ja foi inicializado?
+        tempo_decorrido += datetime.now() - horario_inicio_teste #calcula a diferença do tempo atual para o horario que foi iniciado o teste
+    teste_iniciado = False #variavel que marca o teste como não iniciado
+    horario_inicio_teste = None #zera a variável de horario de inicio de teste
+    horario_finalizar = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data de pausa de teste
+    finalizar_label.config(text=f"Finalizado em: {horario_finalizar}") #mostra na tela o horario que o teste foi finalizado
 
-    #messagebox.showinfo("Teste Finalizado", "O teste foi finalizado com sucesso!")
+    gerar_relatorio() #gerar o relatório ao finalizar o teste
 
-    # Gerar o relatório ao finalizar o teste
-    gerar_relatorio()
+    pausar_button.config(state=tk.DISABLED) #desabilita o botão pausar
+    finalizar_button.config(state=tk.DISABLED) #desabilita o botão finalizar
+    continuar_button.config(state=tk.DISABLED) #desabilita o botão continuar
 
-    # Atualizar estados dos botões
-    pausar_button.config(state=tk.DISABLED)
-    finalizar_button.config(state=tk.DISABLED)
-    continuar_button.config(state=tk.DISABLED)
-
+#Método que atualiza o tempo decorrido
 def atualizar_tempo_decorrido():
-    if teste_iniciado:
-        tempo_atual = datetime.now() - horario_inicio_teste + tempo_decorrido
-    else:
-        tempo_atual = tempo_decorrido
+    if teste_iniciado: #o teste ja foi inicializado?
+        tempo_atual = datetime.now() - horario_inicio_teste + tempo_decorrido #calcula a diferença do tempo atual para o horario que foi iniciado o teste
+    else: #senão
+        tempo_atual = tempo_decorrido #o tempo atual fica igual ao tempo decorrido
 
-    # Exibe o tempo decorrido e a data/hora de início, que fica fixa
-    tempo_decorrido_label.config(text=f"Tempo Decorrido: {str(tempo_atual).split('.')[0]} | Iniciado em: {horario_inicio_formatado}")
-    janela.after(1000, atualizar_tempo_decorrido)
+    tempo_decorrido_label.config(text=f"Tempo Decorrido: {str(tempo_atual).split('.')[0]} | Iniciado em: {horario_inicio_formatado}") #exibe o tempo decorrido e a data/hora de início, que fica fixa
+    janela.after(1000, atualizar_tempo_decorrido) #chama novamente após 1s
 
+#Método que verifica os estados de consumo
 def verificar_histerese(consumo_mensal_kWh):
-    global horario_transicao_consumo, estado_atual_consumo
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+    global horario_transicao_consumo, estado_atual_consumo #variáveis globais a serem utilizadas aqui e fora desse método
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
-    if consumo_mensal_kWh < limite_inferior_consumo:
-        novo_estado = "abaixo"
-        status_label_alerta.config(text=f"Alerta: Consumo abaixo da média! {horario_transicao_consumo or horario_atual}", fg="blue")
-    elif consumo_mensal_kWh > limite_superior_consumo:
-        novo_estado = "acima"
-        status_label_alerta.config(text=f"Alerta: Consumo acima da média! {horario_transicao_consumo or horario_atual}", fg="red")
-    else:
-        novo_estado = "dentro"
-        status_label_alerta.config(text=f"Consumo dentro da média esperada. {horario_transicao_consumo or horario_atual}", fg="green")
+    if consumo_mensal_kWh < limite_inferior_consumo: #se a média móvel do consumo atual for menor que o limite editado
+        novo_estado = "abaixo" #o estado é abaixo
+        status_label_alerta.config(text=f"Alerta: Consumo abaixo da média! {horario_transicao_consumo or horario_atual}", fg="blue") #emite um alerta em forma de label
+    elif consumo_mensal_kWh > limite_superior_consumo:  #se a média móvel do consumo atual for maior que o limite editado
+        novo_estado = "acima" #o estado é acima
+        status_label_alerta.config(text=f"Alerta: Consumo acima da média! {horario_transicao_consumo or horario_atual}", fg="red") #emite um alerta em forma de label
+    else: #senao estiver abaixo nem acima
+        novo_estado = "dentro" #o estado está dentro
+        status_label_alerta.config(text=f"Consumo dentro da média esperada. {horario_transicao_consumo or horario_atual}", fg="green") #emite um alerta em forma de label
 
-    # Atualiza o horário de transição e registra a transição
-    if novo_estado != estado_atual_consumo:
-        estado_atual_consumo = novo_estado
-        transicoes_alertas_consumo.append(f"Transição de Consumo: {novo_estado} em {horario_atual}")
-        horario_transicao_consumo = horario_atual
+    if novo_estado != estado_atual_consumo: #se o novo estado for diferente do estado atual
+        estado_atual_consumo = novo_estado #atualiza o estado 
+        transicoes_alertas_consumo.append(f"Transição de Consumo: {novo_estado} em {horario_atual}") #mensagem formatada que indica a transição de estado de consumo que vai para o relatório
+        horario_transicao_consumo = horario_atual #registra o horário da transição
 
- 
+#Método que verifica os estados de rendimento 
 def verificar_rendimento(rendimento_potencia):
-    global horario_transicao_rendimento, estado_atual_rendimento
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+    global horario_transicao_rendimento, estado_atual_rendimento #variáveis globais a serem utilizadas aqui e fora desse método
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
-    if rendimento_potencia < limite_inferior_rendimento:
-        novo_estado = "abaixo"
+    if rendimento_potencia < limite_inferior_rendimento: #se a média móvel do rendimento atual for menor que o limite editado
+        novo_estado = "abaixo" #o estado é abaixo
         status_label_rendimento.config(
             text=f"Alerta: Rendimento abaixo do limite! {horario_transicao_rendimento or horario_atual}",
             fg="blue"
-        )
-    elif rendimento_potencia > limite_superior_rendimento:
-        novo_estado = "acima"
+        ) #emite um alerta em forma de label
+    elif rendimento_potencia > limite_superior_rendimento: #se a média móvel do rendimento atual for maior que o limite editado
+        novo_estado = "acima" #o estado é acima
         status_label_rendimento.config(
             text=f"Alerta: Rendimento acima do limite! {horario_transicao_rendimento or horario_atual}",
             fg="red"
-        )
-    else:
-        novo_estado = "dentro"
+        ) #emite um alerta em forma de label
+    else: #senao estiver abaixo nem acima
+        novo_estado = "dentro" #o estado está dentro
         status_label_rendimento.config(
             text=f"Rendimento dentro do limite esperado. {horario_transicao_rendimento or horario_atual}",
             fg="green"
-        )
+        ) #emite um alerta em forma de label
 
-    # Atualiza o horário de transição e registra a transição
-    if novo_estado != estado_atual_rendimento:
-        estado_atual_rendimento = novo_estado
-        transicoes_alertas_rendimento.append(f"Transição de Rendimento: {novo_estado} em {horario_atual}")
-        horario_transicao_rendimento = horario_atual
+    if novo_estado != estado_atual_rendimento: #se o novo estado for diferente do estado atual
+        estado_atual_rendimento = novo_estado #atualiza o estado 
+        transicoes_alertas_rendimento.append(f"Transição de Rendimento: {novo_estado} em {horario_atual}") #mensagem formatada que indica a transição de estado de rendimento que vai para o relatório
+        horario_transicao_rendimento = horario_atual #registra o horário da transição
 
-
+#Método que verifica os estados do sensor de temperatura 1
 def verificar_temperatura_sensor_1(media_temperatura):
-    global horario_transicao_sensor_1, estado_atual_sensor_1
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+    global horario_transicao_sensor_1, estado_atual_sensor_1 #variáveis globais a serem utilizadas aqui e fora desse método
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
-    if media_temperatura < limite_inferior_temperatura_sensor_1:
-        novo_estado = "abaixo"
-        status_label_temperatura_sensor_1.config(text=f"Alerta: Temperatura do Sensor 1 abaixo da média! {horario_transicao_sensor_1 or horario_atual}", fg="blue")
-    elif media_temperatura > limite_superior_temperatura_sensor_1:
-        novo_estado = "acima"
-        status_label_temperatura_sensor_1.config(text=f"Alerta: Temperatura do Sensor 1 acima da média! {horario_transicao_sensor_1 or horario_atual}", fg="red")
-    else:
-        novo_estado = "dentro"
-        status_label_temperatura_sensor_1.config(text=f"Temperatura do Sensor 1 dentro da média esperada. {horario_transicao_sensor_1 or horario_atual}", fg="green")
+    if media_temperatura < limite_inferior_temperatura_sensor_1: #se a média móvel atual da temperatura do sensor 1 for menor que o limite editado
+        novo_estado = "abaixo" #o estado é abaixo
+        status_label_temperatura_sensor_1.config(text=f"Alerta: Temperatura do Sensor 1 abaixo da média! {horario_transicao_sensor_1 or horario_atual}", fg="blue") #emite um alerta em forma de label
+    elif media_temperatura > limite_superior_temperatura_sensor_1: #se a média móvel atual da temperatura do sensor 1 for maior que o limite editado
+        novo_estado = "acima" #o estado é acima
+        status_label_temperatura_sensor_1.config(text=f"Alerta: Temperatura do Sensor 1 acima da média! {horario_transicao_sensor_1 or horario_atual}", fg="red") #emite um alerta em forma de label
+    else: #senao estiver abaixo nem acima
+        novo_estado = "dentro" #o estado está dentro
+        status_label_temperatura_sensor_1.config(text=f"Temperatura do Sensor 1 dentro da média esperada. {horario_transicao_sensor_1 or horario_atual}", fg="green") #emite um alerta em forma de label
 
-    # Atualiza o horário de transição e registra a transição
-    if novo_estado != estado_atual_sensor_1:
-        estado_atual_sensor_1 = novo_estado
-        transicoes_alertas_temp_sensor_1.append(f"Transição de Temperatura Sensor 1: {novo_estado} em {horario_atual}")
-        horario_transicao_sensor_1 = horario_atual
+    if novo_estado != estado_atual_sensor_1: #se o novo estado for diferente do estado atual
+        estado_atual_sensor_1 = novo_estado #atualiza o estado 
+        transicoes_alertas_temp_sensor_1.append(f"Transição de Temperatura Sensor 1: {novo_estado} em {horario_atual}") #mensagem formatada que indica a transição de estado de temperatura do sensor 1 que vai para o relatório
+        horario_transicao_sensor_1 = horario_atual #registra o horário da transição
 
-def verificar_temperatura_sensor_2(media_temperatura2):
-    global horario_transicao_sensor_2, estado_atual_sensor_2
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+#Método que verifica os estados do sensor de temperatura 1
+def verificar_temperatura_sensor_2(media_temperatura2): 
+    global horario_transicao_sensor_2, estado_atual_sensor_2 #variáveis globais a serem utilizadas aqui e fora desse método 
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
-    if media_temperatura2 < limite_inferior_temperatura_sensor_2:
-        novo_estado = "abaixo"
-        status_label_temperatura_sensor_2.config(text=f"Alerta: Temperatura do Sensor 2 abaixo da média! {horario_transicao_sensor_2 or horario_atual}", fg="blue")
-    elif media_temperatura2 > limite_superior_temperatura_sensor_2:
-        novo_estado = "acima"
-        status_label_temperatura_sensor_2.config(text=f"Alerta: Temperatura do Sensor 2 acima da média! {horario_transicao_sensor_2 or horario_atual}", fg="red")
-    else:
-        novo_estado = "dentro"
-        status_label_temperatura_sensor_2.config(text=f"Temperatura do Sensor 2 dentro da média esperada. {horario_transicao_sensor_2 or horario_atual}", fg="green")
+    if media_temperatura2 < limite_inferior_temperatura_sensor_2: #se a média móvel atual da temperatura do sensor 1 for menor que o limite editado
+        novo_estado = "abaixo" #o estado é abaixo
+        status_label_temperatura_sensor_2.config(text=f"Alerta: Temperatura do Sensor 2 abaixo da média! {horario_transicao_sensor_2 or horario_atual}", fg="blue") #emite um alerta em forma de label
+    elif media_temperatura2 > limite_superior_temperatura_sensor_2: #se a média móvel atual da temperatura do sensor 1 for maior que o limite editado
+        novo_estado = "acima" #o estado é acima
+        status_label_temperatura_sensor_2.config(text=f"Alerta: Temperatura do Sensor 2 acima da média! {horario_transicao_sensor_2 or horario_atual}", fg="red") #emite um alerta em forma de label
+    else: #senao estiver abaixo nem acima
+        novo_estado = "dentro" #o estado está dentro
+        status_label_temperatura_sensor_2.config(text=f"Temperatura do Sensor 2 dentro da média esperada. {horario_transicao_sensor_2 or horario_atual}", fg="green") #emite um alerta em forma de label
 
-    # Atualiza o horário de transição e registra a transição
-    if novo_estado != estado_atual_sensor_2:
-        estado_atual_sensor_2 = novo_estado
-        transicoes_alertas_temp_sensor_2.append(f"Transição de Temperatura Sensor 2: {novo_estado} em {horario_atual}")
-        horario_transicao_sensor_2 = horario_atual
-        
+    if novo_estado != estado_atual_sensor_2: #se o novo estado for diferente do estado atual
+        estado_atual_sensor_2 = novo_estado #atualiza o estado
+        transicoes_alertas_temp_sensor_2.append(f"Transição de Temperatura Sensor 2: {novo_estado} em {horario_atual}") #mensagem formatada que indica a transição de estado de temperatura do sensor 1 que vai para o relatório
+        horario_transicao_sensor_2 = horario_atual #registra o horário da transição
+
+#Método que verifica os estados do sensor de porta        
 def verificar_sensor_porta(valor_sensor_porta):
-    global horario_transicao_sensor_porta, estado_atual_sensor_porta
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+    global horario_transicao_sensor_porta, estado_atual_sensor_porta #variáveis globais a serem utilizadas aqui e fora desse método 
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
     if valor_sensor_porta == 1:  # Porta aberta
-        novo_estado = "aberta"
+        novo_estado = "aberta" #o estado da porta é aberta
         sensor_porta_label.config(
             text=f"Alerta: Porta aberta! {horario_transicao_sensor_porta or horario_atual}",
             fg="red"
-        )
+        ) #emite um alerta em forma de label
     elif valor_sensor_porta == 0.0:  # Porta fechada
-        novo_estado = "fechada"
+        novo_estado = "fechada" #o estado da porta é fechada
         sensor_porta_label.config(
             text=f"Alerta: Porta fechada. {horario_transicao_sensor_porta or horario_atual}",
             fg="green"
-        )
+        ) #emite um alerta em forma de label
     else:
-        print(f"Valor inesperado do sensor: {valor_sensor_porta}")
-        return
+        print(f"Valor inesperado do sensor: {valor_sensor_porta}") #imprime mensagem no terminal python 
+        return #evita a execução do restante do código
 
-    # Atualiza o estado e registra a transição
-    if novo_estado != estado_atual_sensor_porta:
-        estado_atual_sensor_porta = novo_estado
-        transicoes_alertas_sensor_porta.append(f"Transição: Porta {novo_estado} em {horario_atual}")
-        horario_transicao_sensor_porta = horario_atual
-        
+    if novo_estado != estado_atual_sensor_porta: #se o novo estado for diferente do estado atual
+        estado_atual_sensor_porta = novo_estado #atualiza o estado
+        transicoes_alertas_sensor_porta.append(f"Transição: Porta {novo_estado} em {horario_atual}") #mensagem formatada que indica a transição de estado de temperatura do sensor 1 que vai para o relatório
+        horario_transicao_sensor_porta = horario_atual #registra o horário da transição
+
+#Método que calcula a média móvel de energia
 def calcular_energia():
-    global tempo_decorrido, horario_inicio_teste
-    if valores_potencia:  # Verifica se há leituras de potência
-        if teste_iniciado:
-            # Certifique-se de que horario_inicio_teste foi inicializado
-            if horario_inicio_teste is None:
-                horario_inicio_teste = datetime.now()
+    global tempo_decorrido, horario_inicio_teste #variáveis globais a serem utilizadas aqui e fora desse método 
+    if valores_potencia:  #tem leituras de potência na lista?
+        if teste_iniciado: #o teste ja foi inicializado?
+            if horario_inicio_teste is None: #se o horario de teste nao tem valor
+                horario_inicio_teste = datetime.now() #passa o horario e a data de agora
 
-            # Atualiza o tempo decorrido
-            tempo_decorrido += datetime.now() - horario_inicio_teste
-            horario_inicio_teste = datetime.now()  # Atualiza o horário inicial
+            tempo_decorrido += datetime.now() - horario_inicio_teste #atualiza o tempo decorrido
+            horario_inicio_teste = datetime.now()  #atualiza o horário inicial
 
-        # Calcula o tempo em segundos e a energia
-        tempo_em_segundos = tempo_decorrido.total_seconds()
-        media_potencia = media_movel(valores_potencia)  # Usar a média móvel da potência
-        energia = (media_potencia * tempo_em_segundos) / (3600 * 1000)  # Energia em kWh
+        tempo_em_segundos = tempo_decorrido.total_seconds() #passa o tempo decorrido em segundos
+        media_potencia = media_movel(valores_potencia)  #passa a média móvel da potência
+        energia = (media_potencia * tempo_em_segundos) / (3600 * 1000)  #calcula a energia em kWh
 
         # Adiciona uma verificação para ver os valores de energia e potência
         #print(f"Tempo decorrido: {tempo_em_segundos} s, Potência média: {media_potencia} W, Energia: {energia} kWh")
 
-        energia_label.config(text=f"Energia: {energia:.6f} kWh")
+        energia_label.config(text=f"Energia: {energia:.6f} kWh") #exibe em label o valor da energia
 
-        # Cálculo do custo com base na tarifa de energia
-        custo_teste = energia * tarifa_energia
-        custo_teste_label.config(text=f"Custo Total: R$ {custo_teste:.8f}")
-    else:
-        energia_label.config(text="Energia (kWh): N/A")
-        custo_teste_label.config(text="Custo Total: N/A")
+        custo_teste = energia * tarifa_energia #calcula o custo com base na tarifa de energia
+        custo_teste_label.config(text=f"Custo Total: R$ {custo_teste:.8f}") #exibe em label o custo total do valor da energia
+    else: #senão tiver leituras de potência
+        energia_label.config(text="Energia (kWh): N/A") #exibe em label que a energia não está disponível
+        custo_teste_label.config(text="Custo Total: N/A") #exibe em label que o custo total não está disponível
 
-# Função para extrair valores de diferentes tipos das leituras
+#Método para extrair valores de diferentes tipos das leituras
 def extrair_valor(linha, tipo):
     try:
-        if tipo == "Power":
-            valor_str = linha.replace("Power:", "").replace("W", "").strip()
-        elif tipo == "Temperatura":
-            valor_str = linha.replace("Temperatura:", "").replace("*C", "").strip()
-        elif tipo == "Temperatura2":
-            valor_str = linha.replace("Temperatura2:", "").replace("*C", "").strip()
-        elif tipo == "Voltage":
-            valor_str = linha.replace("Voltage:", "").replace("V", "").strip()
-        elif tipo == "Current":
-            valor_str = linha.replace("Current:", "").replace("A", "").strip()
-        elif tipo == "SensorPorta":
-            valor_str = linha.replace("SensorPorta:", "").strip()
-        return float(valor_str)
-    except ValueError:
-        print(f"Erro ao converter valor: {linha}")
-        return None
+        if tipo == "Power": #se for do tipo potencia
+            valor_str = linha.replace("Power:", "").replace("W", "").strip() #remove o rótulo Power: e a unidade W. Deixa só o número
+        elif tipo == "Temperatura": #se for do tipo temperatura1
+            valor_str = linha.replace("Temperatura:", "").replace("*C", "").strip() #remove o rótulo Temperatura: e a unidade C. Deixa só o número
+        elif tipo == "Temperatura2": #se for do tipo temperatura2
+            valor_str = linha.replace("Temperatura2:", "").replace("*C", "").strip() #remove o rótulo Temperatura2: e a unidade C. Deixa só o número
+        elif tipo == "Voltage": #se for do tipo tensão
+            valor_str = linha.replace("Voltage:", "").replace("V", "").strip() #remove o rótulo Voltage: e a unidade V. Deixa só o número
+        elif tipo == "Current": #se for do tipo corrente
+            valor_str = linha.replace("Current:", "").replace("A", "").strip() #remove o rótulo Current: e a unidade A. Deixa só o número
+        elif tipo == "SensorPorta": #se for do tipo sensor de porta
+            valor_str = linha.replace("SensorPorta:", "").strip() #remove o rótulo SensorPorta: e a unidade V. Deixa só o número
+        return float(valor_str) #evita a execução do restante do código e retorna o valor da string
+    except ValueError: #se tiver erro trata a exceção
+        print(f"Erro ao converter valor: {linha}") #imprime mensagem no terminal python 
+        return None #evita a execução do restante do código e retorna o valor como None
 
-# Função para calcular o rendimento comparando valores médios com nominais
+#Método para calcular o rendimento comparando valores médios com nominais
 def calcular_rendimento():
-    global rendimento_absoluto, rendimento_relativo, estado_atual_rendimento, horario_transicao_rendimento
+    global rendimento_absoluto, rendimento_relativo, estado_atual_rendimento, horario_transicao_rendimento #variáveis globais a serem utilizadas aqui e fora desse método 
 
-    if valores_potencia:  # Verifica se há leituras na lista
-        # Calcula a média móvel da potência
-        media_potencia = media_movel(valores_potencia)
+    if valores_potencia:  #tem leituras de potência na lista?
+        
+        media_potencia = media_movel(valores_potencia) #calcula a média móvel da potência
 
-        # Cálculo do rendimento: comparando a potência média com a potência nominal
-        rendimento_potencia = (media_potencia / potencia_nominal) * 100 if potencia_nominal != 0 else 0
+        rendimento_potencia = (media_potencia / potencia_nominal) * 100 if potencia_nominal != 0 else 0 #calcula o rendimento: comparando a potência média com a potência nominal
 
-        # Calcula os erros absolutos e relativos em relação ao rendimento nominal
-        rendimento_absoluto = abs(rendimento_potencia - rendimento_nominal)
-        rendimento_relativo = (rendimento_absoluto / rendimento_nominal) * 100 if rendimento_nominal != 0 else 0
+        rendimento_absoluto = abs(rendimento_potencia - rendimento_nominal) #calcula o erro absoluto em relação ao rendimento nominal
+        rendimento_relativo = (rendimento_absoluto / rendimento_nominal) * 100 if rendimento_nominal != 0 else 0 #calcula o erro relativo em relação ao rendimento nominal
 
-        # Atualiza os labels de rendimento
-        rendimento_label.config(text=f"Rendimento: {rendimento_potencia:.2f}%")
-        erro_absoluto_rendimento_label.config(text=f"Diferença Absoluta do Rendimento: {rendimento_absoluto:.2f}%")
-        erro_relativo_rendimento_label.config(text=f"Porcentagem Relativa do Rendimento: {rendimento_relativo:.2f}%")
+        rendimento_label.config(text=f"Rendimento: {rendimento_potencia:.2f}%") #exibe em label o valor do rendimento
+        erro_absoluto_rendimento_label.config(text=f"Diferença Absoluta do Rendimento: {rendimento_absoluto:.2f}%") #exibe em label o valor do erro absoluto do rendimento
+        erro_relativo_rendimento_label.config(text=f"Porcentagem Relativa do Rendimento: {rendimento_relativo:.2f}%") #exibe em label o valor do erro relativo do rendimento
 
-        # Verificar se o rendimento está fora dos limites e exibir alertas
-        verificar_rendimento(rendimento_potencia)
+        verificar_rendimento(rendimento_potencia) #chama a função que verifica se o rendimento está fora dos limites e exibe alertas
+
     else:
         # Atualiza os labels com valores padrão se não houver leituras
-        rendimento_label.config(text="Rendimento: N/A")
-        erro_absoluto_rendimento_label.config(text="Diferença Absoluta do Rendimento: N/A")
-        erro_relativo_rendimento_label.config(text="Porcentagem Relativa do Rendimento: N/A")
+        rendimento_label.config(text="Rendimento: N/A") #exibe em label que o valor do rendimento não está disponível
+        erro_absoluto_rendimento_label.config(text="Diferença Absoluta do Rendimento: N/A") #exibe em label que o valor do erro absoluto não está disponível
+        erro_relativo_rendimento_label.config(text="Porcentagem Relativa do Rendimento: N/A") #exibe em label que o valor do erro relativo não está disponível
 
 
-# Função para calcular o consumo mensal estimado com base na potência média
+#Método para calcular o consumo mensal estimado com base na potência média
 def calcular_consumo_mensal():
-    global consumo_absoluto, consumo_relativo
-    if valores_potencia:  # Verifica se há leituras de potência
-        media_potencia = media_movel(valores_potencia)  # Usar a média móvel
-        horas_por_dia = 24  # Supondo uso contínuo por 24 horas
-        dias_por_mes = 30  # Aproximação para um mês
-        consumo_diario_kWh = (media_potencia / 1000) * horas_por_dia  # Converter watts para kWh
-        consumo_mensal_kWh = consumo_diario_kWh * dias_por_mes  # Consumo mensal estimado
+    global consumo_absoluto, consumo_relativo #variáveis globais a serem utilizadas aqui e fora desse método 
+    if valores_potencia:  #tem leituras de potência na lista?
+        media_potencia = media_movel(valores_potencia)  #passa a média móvel dos valores de potencia
+        horas_por_dia = 24  #uso contínuo por 24 horas
+        dias_por_mes = 30  #aproximação para um mês
+        consumo_diario_kWh = (media_potencia / 1000) * horas_por_dia  #converte watts para kWh
+        consumo_mensal_kWh = consumo_diario_kWh * dias_por_mes  #consumo mensal estimado
 
-        # Verificar alarmes de histerese
-        verificar_histerese(consumo_mensal_kWh)
+        verificar_histerese(consumo_mensal_kWh) #verificar alarmes de histerese
 
-        # Cálculos de erro para o consumo
-        consumo_absoluto = abs(consumo_mensal_kWh - consumo_mensal_nominal)
-        consumo_relativo = (consumo_absoluto / consumo_mensal_nominal) * 100 if consumo_mensal_nominal != 0 else 0
+        consumo_absoluto = abs(consumo_mensal_kWh - consumo_mensal_nominal) #calcula o erro absoluto em relação ao consumo nominal
+        consumo_relativo = (consumo_absoluto / consumo_mensal_nominal) * 100 if consumo_mensal_nominal != 0 else 0  #calcula o erro relativo em relação ao rendimento nominal
 
-        consumo_mensal_label.config(text=f"Consumo Mensal Estimado: {consumo_mensal_kWh:.2f} kWh")
-        erro_absoluto_consumo_label.config(text=f"Diferença Absoluta do do Consumo: {consumo_absoluto:.2f} kWh")
-        erro_relativo_consumo_label.config(text=f"Porcentagem Relativa do do Consumo: {consumo_relativo:.2f} %")
+        consumo_mensal_label.config(text=f"Consumo Mensal Estimado: {consumo_mensal_kWh:.2f} kWh") #exibe em label o valor do consumo mensal estimado
+        erro_absoluto_consumo_label.config(text=f"Diferença Absoluta do Consumo: {consumo_absoluto:.2f} kWh") #exibe em label o valor do erro absoluto do consumo
+        erro_relativo_consumo_label.config(text=f"Porcentagem Relativa do Consumo: {consumo_relativo:.2f} %") #exibe em label o valor do erro relativo do consumo
 
-        # Calcular o custo mensal com base no consumo e na tarifa
-        custo_mensal = consumo_mensal_kWh * tarifa_energia
-        custo_mensal_label.config(text=f"Custo Mensal Estimado: R$ {custo_mensal:.2f}")
+        custo_mensal = consumo_mensal_kWh * tarifa_energia #calcular o custo mensal com base no consumo e na tarifa
+        custo_mensal_label.config(text=f"Custo Mensal Estimado: R$ {custo_mensal:.2f}") #exibe em label o valor do custo mensal estimado
 
-        # Calcular a energia total
-        calcular_energia()
+        calcular_energia()  #chama a função para calcular a energia total
     else:
-        consumo_mensal_label.config(text="Consumo Mensal Estimado: N/A")
-        custo_mensal_label.config(text="Custo Mensal Estimado: N/A")
-        erro_absoluto_consumo_label.config(text="Consumo Erro Absoluto: N/A")
-        erro_relativo_consumo_label.config(text="Consumo Erro Relativo: N/A")
-        energia_label.config(text="Energia (Wh): N/A")
+        consumo_mensal_label.config(text="Consumo Mensal Estimado: N/A") #exibe em label que o valor do consumo mensal estimado não está disponível
+        custo_mensal_label.config(text="Custo Mensal Estimado: N/A") #exibe em label que o valor do custo mensal estimado não está disponível
+        erro_absoluto_consumo_label.config(text="Consumo Erro Absoluto: N/A") #exibe em label que o valor do consumo erro absoluto não está disponível
+        erro_relativo_consumo_label.config(text="Consumo Erro Relativo: N/A") #exibe em label que o valor do consumo erro relativo não está disponível
+        energia_label.config(text="Energia (Wh): N/A") #exibe em label que o valor da energia não está disponível
 
 
-# Função para calcular e atualizar as médias utilizando a média móvel
+#Método para calcular e atualizar as médias utilizando a média móvel
 def calcular_medias():
-    global sensorporta  # Garantir que a variável global seja acessível
-    if valores_potencia:
-        media_potencia = media_movel(valores_potencia)
-        media_temperatura = media_movel(valores_temperatura)
-        media_temperatura2 = media_movel(valores_temperatura2)
-        #media_energia = media_movel(valores_energia)
-        media_tensao = media_movel(valores_tensao)
-        media_corrente = media_movel(valores_corrente)
-        media_potencia_aparente = media_movel(valores_potencia_aparente)
-        media_potencia_reativa = media_movel(valores_potencia_reativa)
-    else:
-        #media_potencia = media_temperatura = media_temperatura2 = media_energia = media_tensao = media_corrente = 0.0
-        media_potencia = media_temperatura = media_temperatura2 = media_tensao = media_corrente = 0.0
+    global sensorporta  #variáveis globais a serem utilizadas aqui e fora desse método 
+    if valores_potencia: #tem leituras de potência na lista?
+        media_potencia = media_movel(valores_potencia) #passa a média móvel dos valores de potencia
+        media_temperatura = media_movel(valores_temperatura) #passa a média móvel dos valores de temperatura do sensor 1
+        media_temperatura2 = media_movel(valores_temperatura2) #passa a média móvel dos valores de temperatura do sensor 2
+        media_tensao = media_movel(valores_tensao) #passa a média móvel dos valores de tensão
+        media_corrente = media_movel(valores_corrente) #passa a média móvel dos valores de corrente
+        media_potencia_aparente = media_movel(valores_potencia_aparente) #passa a média móvel dos valores de potência aparente
+        media_potencia_reativa = media_movel(valores_potencia_reativa) #passa a média móvel dos valores de potência reativa
+    else: #senão tiver leituras de potência na lista 
+        media_potencia = media_temperatura = media_temperatura2 = media_tensao = media_corrente = 0.0 #os valores iniciam em zero
+        media_potencia_aparente = media_potencia_reativa = 0.0 #os valores iniciam em zero
 
-        media_potencia_aparente = media_potencia_reativa = 0.0
-
-    # Atualizar os labels de médias na interface
+    # Atualizar os labels de médias na tela
     media_potencia_label.config(text=f"Média Potência: {media_potencia:.2f} W")
     media_temperatura_label.config(text=f"Média Temperatura: {media_temperatura:.2f} °C")
     media_temperatura2_label.config(text=f"Média Temperatura2: {media_temperatura2:.2f} °C")
-    #media_energia_label.config(text=f"Média Energia: {media_energia:.2f} Wh")
     media_tensao_label.config(text=f"Média Tensão: {media_tensao:.2f} V")
     media_corrente_label.config(text=f"Média Corrente: {media_corrente:.2f} A")
     media_potencia_aparente_label.config(text=f"Média Potência Aparente: {media_potencia_aparente:.2f} VA")
     media_potencia_reativa_label.config(text=f"Média Potência Reativa: {media_potencia_reativa:.2f} Var")
 
-    # Calcular e exibir as temperatuas dos sensores
-    verificar_temperatura_sensor_1(media_temperatura)
-    verificar_temperatura_sensor_2(media_temperatura2)
+    verificar_temperatura_sensor_1(media_temperatura) #calcula e exibe a média das temperaturas do sensor 1
+    verificar_temperatura_sensor_2(media_temperatura2) #calcula e exibe a média das temperaturas do sensor 2
+    verificar_sensor_porta(sensorporta) #calcula e exibe o valor do sensor de porta
     
-    verificar_sensor_porta(sensorporta)
-    
-    # Calcular e exibir o rendimento
-    calcular_rendimento()
+    calcular_rendimento() #chama a função que calcula e exibe o valor do rendimento
+    calcular_consumo_mensal() #chama a função que calcula e exibe o valor do consumo mensal
 
-    # Calcular e exibir o consumo mensal estimado e o custo
-    calcular_consumo_mensal()
-
-# Função para adicionar valores ao gráfico e somar para calcular as médias
-#def adicionar_valores_grafico(potencia, temperatura, temperatura2, energia, tensao, corrente):
+#Método para adicionar valores ao gráfico e somar para calcular as médias
 def adicionar_valores_grafico(potencia, temperatura, temperatura2, tensao, corrente, sensorporta):
-    potencia_aparente = tensao * corrente  # S = V * I
-    if potencia_aparente != 0:
-        fator_de_potencia = potencia / potencia_aparente  # FP = P / S
-    else:
-        fator_de_potencia = 0
-    potencia_reativa = potencia_aparente * math.sqrt(1 - fator_de_potencia**2) if fator_de_potencia <= 1 else 0
+    potencia_aparente = tensao * corrente  #calcula a potencia aparente
+    if potencia_aparente != 0: #se a potencia aparente calculada for diferente de zero
+        fator_de_potencia = potencia / potencia_aparente  #calcula o fator de potência
+    else: #se a potencia aparente for 0
+        fator_de_potencia = 0 #define o FP como sendo zero
+    potencia_reativa = potencia_aparente * math.sqrt(1 - fator_de_potencia**2) if fator_de_potencia <= 1 else 0 #calcula a potencia reativa se for o FP for menor ou igual a 1, senão  a potencia reativa é 0
 
-    valores_potencia.append(potencia)
-    valores_temperatura.append(temperatura)
-    valores_temperatura2.append(temperatura2)
-    #valores_energia.append(energia)
-    valores_tensao.append(tensao)
-    valores_corrente.append(corrente)
-    valores_potencia_aparente.append(potencia_aparente)
-    valores_potencia_reativa.append(potencia_reativa)
-    valores_sensor_porta.append(sensorporta)
-    horarios.append(datetime.now().strftime("%H:%M:%S"))
+    valores_potencia.append(potencia) #adiciona o valor de potencia medida para uma lista e pode usar o valor no relatorio
+    valores_temperatura.append(temperatura) #adiciona o valor de temperatura do sensor 1 medida para uma lista e pode usar o valor no relatorio
+    valores_temperatura2.append(temperatura2) #adiciona o valor de temperatura do sensor 2 medida para uma lista e pode usar o valor no relatorio
+    valores_tensao.append(tensao) #adiciona o valor de tensão medida para uma lista e pode usar o valor no relatorio
+    valores_corrente.append(corrente) #adiciona o valor de corrente medida para uma lista e pode usar o valor no relatorio
+    valores_potencia_aparente.append(potencia_aparente) #adiciona o valor de potencia aparente medida para uma lista e pode usar o valor no relatorio
+    valores_potencia_reativa.append(potencia_reativa) #adiciona o valor de potencia reativa medida para uma lista e pode usar o valor no relatorio
+    valores_sensor_porta.append(sensorporta) #adiciona o valor lindo no sensor de porta para uma lista e pode usar o valor no relatorio
+    horarios.append(datetime.now().strftime("%H:%M:%S")) #adiciona os horarios formatados para uma lista e pode usar no relatório
 
+#Método que atualiza os dados
 def atualizar_dados():
-    global sensorporta, contador_id, dados_buffer
+    global sensorporta, contador_id, dados_buffer #variáveis globais a serem utilizadas aqui e fora desse método 
 
-    if teste_iniciado and arduino.in_waiting > 0:
-        linha = arduino.readline().decode('utf-8').strip()
+    if teste_iniciado and arduino.in_waiting > 0: #o teste ja foi iniciado? tem dados de leitura no arduino? 
+        linha = arduino.readline().decode('utf-8').strip() #lê a linha da serial no formato utf e remove espaço brancos
 
-        if linha:
-            texto_area.insert(tk.END, f"{linha}\n")
-            texto_area.see(tk.END)
+        if linha: #tem texto?
+            texto_area.insert(tk.END, f"{linha}\n") #insere o texto e uma nova linha
+            texto_area.see(tk.END) #vai pra ultima linha inserida
 
-            # Adicionar linha ao buffer de dados
-            dados_buffer.append(linha)
+            dados_buffer.append(linha)  #adicionar linha ao buffer de dados
 
-            # Inicializa valores padrões para evitar erros em leituras incompletas
-            temperatura = valores_temperatura[-1] if valores_temperatura else 0.0
-            temperatura2 = valores_temperatura2[-1] if valores_temperatura2 else 0.0
-            tensao = valores_tensao[-1] if valores_tensao else 0.0
-            corrente = valores_corrente[-1] if valores_corrente else 0.0
-            sensorporta = valores_sensor_porta[-1] if valores_sensor_porta else 0.0
+            temperatura = valores_temperatura[-1] if valores_temperatura else 0.0 #contém dados na lista de valores temperatura do sensor 1? Se tiver o ultimo valor lido é utilizado, senão atribiu zero
+            temperatura2 = valores_temperatura2[-1] if valores_temperatura2 else 0.0 #contém dados na lista de valores de temperatura do sensor 2? Se tiver o ultimo valor lido é utilizado, senão atribiu zero
+            tensao = valores_tensao[-1] if valores_tensao else 0.0 #contém dados na lista de valores de tensão? Se tiver o ultimo valor lido é utilizado, senão atribiu zero
+            corrente = valores_corrente[-1] if valores_corrente else 0.0 #contém dados na lista de valores de corrente? Se tiver o ultimo valor lido é utilizado, senão atribiu zero
+            sensorporta = valores_sensor_porta[-1] if valores_sensor_porta else 0.0 #contém dados na lista de valores de tensão? Se tiver o ultimo valor lido é utilizado, senão atribui zero
 
             # Processa os dados recebidos e armazena as leituras mais recentes
-            if linha.startswith("Power:"):
-                potencia = extrair_valor(linha, "Power")
-                if potencia is not None:
-                    adicionar_valores_grafico(potencia, temperatura, temperatura2, tensao, corrente, sensorporta)
+            if linha.startswith("Power:"): #verifica se o inicio da linha começa com Power:
+                potencia = extrair_valor(linha, "Power") #se sim, extrai Power
+                if potencia is not None: #tem valor de potencia?
+                    adicionar_valores_grafico(potencia, temperatura, temperatura2, tensao, corrente, sensorporta) #adiciona os valores no grafico, senão atribui zero
 
-            elif linha.startswith("Temperatura:"):
-                temperatura = extrair_valor(linha, "Temperatura")
-                if temperatura is not None:
+            elif linha.startswith("Temperatura:"): #verifica se o inicio da linha começa com Temperatura:
+                temperatura = extrair_valor(linha, "Temperatura") #se sim, extrai Temperatura
+                if temperatura is not None: #tem valor de temperatura?
                     adicionar_valores_grafico(
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
-                    )
+                    )  #adiciona os valores no grafico, senão atribui zero
 
-            elif linha.startswith("Temperatura2:"):
-                temperatura2 = extrair_valor(linha, "Temperatura2")
-                if temperatura2 is not None:
+            elif linha.startswith("Temperatura2:"):  #verifica se o inicio da linha começa com Temperatura2:
+                temperatura2 = extrair_valor(linha, "Temperatura2") #se sim, extrai Temperatura2
+                if temperatura2 is not None: #tem valor de temperatura2?
                     adicionar_valores_grafico(
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
-                    )
+                    )  #adiciona os valores no grafico, senão atribui zero
 
-            elif linha.startswith("Voltage:"):
-                tensao = extrair_valor(linha, "Voltage")
-                if tensao is not None:
+            elif linha.startswith("Voltage:"): #verifica se o inicio da linha começa com Voltage:
+                tensao = extrair_valor(linha, "Voltage") #se sim, extrai Voltage
+                if tensao is not None: #tem valor de tensão?
                     adicionar_valores_grafico(
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
-                    )
+                    )  #adiciona os valores no grafico, senão atribui zero
 
-            elif linha.startswith("Current:"):
-                corrente = extrair_valor(linha, "Current")
-                if corrente is not None:
+            elif linha.startswith("Current:"): #verifica se o inicio da linha começa com Current:
+                corrente = extrair_valor(linha, "Current") #se sim, extrai Current
+                if corrente is not None: #tem valor de corrente?
                     adicionar_valores_grafico(
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
-                    )
+                    )  #adiciona os valores no grafico, senão atribui zero
 
-            elif linha.startswith("SensorPorta:"):
-                #print(f"Recebido do Sensor Porta: {linha}")
-                sensorporta = extrair_valor(linha, "SensorPorta")
-                if sensorporta is not None:
+            elif linha.startswith("SensorPorta:"): #verifica se o inicio da linha começa com SensorPorta:
+                sensorporta = extrair_valor(linha, "SensorPorta") #se sim, extrai SensorPorta
+                if sensorporta is not None: #tem valor de Sensor de porta?
                     adicionar_valores_grafico(
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
-                    )
-                    sensor_porta_label.config(text=f"Sensor Porta: {sensorporta:.2f}")
+                    )  #adiciona os valores no grafico, senão atribui zero
+                    sensor_porta_label.config(text=f"Sensor Porta: {sensorporta:.2f}") # Atualizar o label do valor do sensor de porta na tela
 
             # Se a linha contém "PF:", significa que o conjunto de leituras está completo
             if "PF:" in linha:
@@ -1238,18 +1186,10 @@ def atualizar_variaveis():
         )
 
 
+janela = tk.Tk() #cria a janela do analisador de consumo energetico em tempo real
+janela.title("Analisador de Consumo Energético de Refrigeradores em Tempo Real") #titulo da janela
 
-
-# Configuração da interface Tkinter
-janela = tk.Tk()
-janela.title("Analisador de Consumo Energético de Refrigeradores em Tempo Real")
-
-# Layout simétrico com Grid
-janela.columnconfigure([0, 4], weight=0)
-
-# Botões de controle
-#iniciar_button = tk.Button(janela, text="Iniciar Teste", command=iniciar_teste)
-#iniciar_button.grid(row=0, column=13, padx=10, pady=5)
+janela.columnconfigure([0, 4], weight=0) #layout simétrico com Grid
 
 continuar_button = tk.Button(janela, text="Continuar Teste", command=continuar_teste, state=tk.DISABLED)
 continuar_button.grid(row=9, column=13, padx=10, pady=5)
