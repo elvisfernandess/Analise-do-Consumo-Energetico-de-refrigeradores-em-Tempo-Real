@@ -1085,31 +1085,26 @@ def atualizar_dados():
                         valores_potencia[-1] if valores_potencia else 0.0,
                         temperatura, temperatura2, tensao, corrente, sensorporta
                     )  #adiciona os valores no grafico, senão atribui zero
-                    sensor_porta_label.config(text=f"Sensor Porta: {sensorporta:.2f}") # Atualizar o label do valor do sensor de porta na tela
+                    sensor_porta_label.config(text=f"Sensor Porta: {sensorporta:.2f}") #atualizar o label do valor do sensor de porta na tela
 
-            # Se a linha contém "PF:", significa que o conjunto de leituras está completo
-            if "PF:" in linha:
-                # Gerar horário e ID
-                horario_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if "PF:" in linha:  #se a linha contém PF: o pacote das leituras está completo
+                horario_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S') #formata o horario e a data do horario atual
+                bloco_dados = f"ID= {contador_id}\n{horario_atual}\n" + "\n".join(dados_buffer) + "\n\n" #cria o bloco formatado para salvar no arquivo .txt
 
-                # Criar bloco formatado para salvar no arquivo
-                bloco_dados = f"ID= {contador_id}\n{horario_atual}\n" + "\n".join(dados_buffer) + "\n\n"
+                with open(arquivo_saida, 'a') as arquivo: #abre o arquivo arquivo_saida.txt para ler os dados
+                    arquivo.write(bloco_dados)  #escreve o bloco formatado no arquivo
+                    arquivo.flush() #garante o salvamento de informações
 
-                # Salvar no arquivo
-                with open(arquivo_saida, 'a') as arquivo:
-                    arquivo.write(bloco_dados)
-                    arquivo.flush()
+                dados_buffer.clear() #limpar buffer 
+                contador_id += 1 #incrementa o ID para a próxima leitura
 
-                # Limpar buffer e incrementar ID para a próxima leitura
-                dados_buffer.clear()
-                contador_id += 1
+    janela.after(100, atualizar_dados)  #chama novamente após 100ms
 
-    janela.after(100, atualizar_dados)  # Repetir a função a cada 100ms
+    calcular_medias()  #chama a função para calcular as médias após processar os dados
 
-    calcular_medias()  # Atualizar os cálculos das médias após processar os dados
-
-# Função para atualizar as variáveis com base nos valores inseridos
+#Método para atualizar as variáveis com base nos valores inseridos
 def atualizar_variaveis():
+    #variáveis globais a serem utilizadas aqui e fora desse método 
     global tarifa_energia, potencia_nominal, tensao_nominal, rendimento_nominal
     global consumo_mensal_nominal, limite_inferior_consumo, limite_superior_consumo
     global limite_inferior_temperatura_sensor_1, limite_superior_temperatura_sensor_1
@@ -1118,25 +1113,23 @@ def atualizar_variaveis():
     global horario_transicao_atualizar, estado_atual_atualizar
     global horarios_atualizacao, transicoes_alertas_consumo
 
-    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-    novo_estado = None
+    horario_atual = datetime.now().strftime('%d-%m-%Y %H:%M:%S') #formata o horario e a data do horario atual
+    novo_estado = None #zera a variável de estado a ser utilizada aqui
 
-    # Lista para registrar todas as alterações realizadas
-    parametros_alterados = []
+    parametros_alterados = [] #lista para registrar todas as alterações realizadas
 
     try:
-        # Função para verificar e atualizar os parâmetros
+        #método para verificar e atualizar os parâmetros
         def atualizar_parametro(nome, entrada, valor_antigo):
-            valor_novo = float(entrada.get())
-            if valor_novo != valor_antigo:
-                parametros_alterados.append(f"{nome}: {valor_antigo} -> {valor_novo}")
-                # Adiciona um alerta com o valor alterado
+            valor_novo = float(entrada.get()) #converte o texto para um número
+            if valor_novo != valor_antigo: #se mudar o valor
+                parametros_alterados.append(f"{nome}: {valor_antigo} -> {valor_novo}") #formata a mensagem para um novo valor
                 transicoes_alertas_consumo.append(
                     f"Alteração no parâmetro '{nome}': {valor_antigo} -> {valor_novo} em {horario_atual}"
-                )
-            return valor_novo
+                )  #adiciona um alerta com o valor alterado
+            return valor_novo #o valor é utilizado para atualizar o estado
 
-        # Atualizar e registrar cada variável configurável
+        #atualizar e registrar cada variável configurável
         tarifa_energia = atualizar_parametro("Tarifa Energia", tarifa_entry, tarifa_energia)
         potencia_nominal = atualizar_parametro("Potência Nominal", potencia_entry, potencia_nominal)
         tensao_nominal = atualizar_parametro("Tensão Nominal", tensao_entry, tensao_nominal)
@@ -1163,27 +1156,22 @@ def atualizar_variaveis():
             "Limite Superior Rendimento", limite_superior_rendimento_entry, limite_superior_rendimento
         )
 
-        # Salva o horário da atualização
-        horarios_atualizacao.append(horario_atual)
+        horarios_atualizacao.append(horario_atual)  #salva o horário da atualização
 
-        # Atualiza o estado de sucesso e exibe uma mensagem
-        novo_estado = "sucesso"
-        status_label.config(text=f"Variáveis atualizadas com sucesso! {horario_atual}", fg="green")
+        novo_estado = "sucesso" #atualiza o estado de sucesso
+        status_label.config(text=f"Variáveis atualizadas com sucesso! {horario_atual}", fg="green")  #exibe uma mensagem
 
-    except ValueError:
-        # Em caso de erro, registra o estado e exibe uma mensagem
-        novo_estado = "erro"
-        status_label.config(text=f"Erro: Verifique os valores inseridos. {horario_atual}", fg="red")
+    except ValueError: #trata exceção de erro
+        novo_estado = "erro" #registra o estado
+        status_label.config(text=f"Erro: Verifique os valores inseridos. {horario_atual}", fg="red") #exibe uma mensagem
 
-    # Atualiza o estado e horário das alterações
-    estado_atual_atualizar = novo_estado
-    horario_transicao_atualizar = horario_atual
+    estado_atual_atualizar = novo_estado #atualiza o estado e horário das alterações
+    horario_transicao_atualizar = horario_atual #atualiza o horário das alterações
 
-    # Adiciona uma mensagem geral aos alertas
-    if parametros_alterados:
+    if parametros_alterados: #se os parâmetros foram alterados
         transicoes_alertas_consumo.append(
             f"Atualizações realizadas em {horario_atual}: {', '.join(parametros_alterados)}"
-        )
+        ) #adiciona uma mensagem geral aos alertas
 
 
 janela = tk.Tk() #cria a janela do analisador de consumo energetico em tempo real
@@ -1191,218 +1179,234 @@ janela.title("Analisador de Consumo Energético de Refrigeradores em Tempo Real"
 
 janela.columnconfigure([0, 4], weight=0) #layout simétrico com Grid
 
+#label para exibir o botão "Continuar Teste" na tela do analisador de consumo energetico em tempo real
 continuar_button = tk.Button(janela, text="Continuar Teste", command=continuar_teste, state=tk.DISABLED)
 continuar_button.grid(row=9, column=13, padx=10, pady=5)
 
+#label para exibir o botão "Pausar Teste" na tela do analisador de consumo energetico em tempo real
 pausar_button = tk.Button(janela, text="Pausar Teste", command=pausar_teste, state=tk.DISABLED)
 pausar_button.grid(row=10, column=13, padx=10, pady=5)
 
+#label para exibir o botão "Finalizar Teste" na tela do analisador de consumo energetico em tempo real
 finalizar_button = tk.Button(janela, text="Finalizar Teste", command=finalizar_teste, state=tk.DISABLED)
 finalizar_button.grid(row=11, column=13, padx=10, pady=5)
 
-# Label para exibir o horário em que o botão "Pausar" foi pressionado
+#label para exibir o horário em que o botão "Pausar Teste" foi pressionado na tela do analisador de consumo energetico em tempo real
 pausar_label = tk.Label(janela, text="Pausado em: N/A", font=("Arial", 10))
 pausar_label.grid(row=1, column=13, padx=10, pady=5)
 
-# Label para exibir o horário em que o botão "Continuar" foi pressionado
+#label para exibir o horário em que o botão "Continuar Teste" foi pressionado na tela do analisador de consumo energetico em tempo real
 continuar_label = tk.Label(janela, text="Continuado em: N/A", font=("Arial", 10))
 continuar_label.grid(row=2, column=13, padx=10, pady=5)
 
-# Label para exibir o horário em que o botão "Finalizar" foi pressionado
+#label para exibir o horário em que o botão "Finalizar Teste" foi pressionado na tela do analisador de consumo energetico em tempo real
 finalizar_label = tk.Label(janela, text="Finalizado em: N/A", font=("Arial", 10))
 finalizar_label.grid(row=3, column=13, padx=10, pady=5)
 
-# Mostrar tempo decorrido
+#label para exibir o tempo decorrido na tela do analisador de consumo energetico em tempo real
 tempo_decorrido_label = tk.Label(janela, text="Tempo Decorrido: 00:00:00", font=("Arial", 10))
 #tempo_decorrido_label.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
 tempo_decorrido_label.grid(row=0, column=13, padx=10, pady=5)
 
-# Label para indicar o item da lista que está sendo testado
+#label para exibir  o item de refrigerador cadastrado da lista que está sendo testado na tela do analisador de consumo energetico em tempo real
 item_testado_label = tk.Label(janela, text="Item testado: N/A", font=("Arial", 10))
 item_testado_label.grid(row=0, column=0, padx=10, pady=5)
 
-# Área de texto para exibir os dados recebidos
+#área de texto para exibir os dados recebidos do arduino na tela do analisador de consumo energetico em tempo real
 texto_area = ScrolledText(janela, wrap=tk.WORD, width=60, height=10, font=("Arial", 10))
 #texto_area.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 texto_area.grid(row=18, column=0, padx=10, pady=10)
 
-
-# Labels para exibir médias (organizados em duas colunas)
+#label para exibir a média móvel do sensor de temperatura 1 na tela do analisador de consumo energetico em tempo real
 media_temperatura_label = tk.Label(janela, text="Média Temperatura: N/A", font=("Arial", 10))
 media_temperatura_label.grid(row=2, column=0, padx=10, pady=5)
 
+#label para exibir a média móvel do sensor de temperatura 2 na tela do analisador de consumo energetico em tempo real
 media_temperatura2_label = tk.Label(janela, text="Média Temperatura2: N/A", font=("Arial", 10))
 media_temperatura2_label.grid(row=3, column=0, padx=10, pady=5)
 
+#label para exibir a média móvel da tensão na tela do analisador de consumo energetico em tempo real
 media_tensao_label = tk.Label(janela, text="Média Tensão: N/A", font=("Arial", 10))
 media_tensao_label.grid(row=4, column=0, padx=10, pady=5)
 
+#label para exibir a média móvel da corrente na tela do analisador de consumo energetico em tempo real
 media_corrente_label = tk.Label(janela, text="Média Corrente: N/A", font=("Arial", 10))
 media_corrente_label.grid(row=5, column=0, padx=10, pady=5)
 
+#label para exibir a média móvel da potência ativa na tela do analisador de consumo energetico em tempo real
 media_potencia_label = tk.Label(janela, text="Média Potência: N/A", font=("Arial", 10))
 media_potencia_label.grid(row=6, column=0, padx=10, pady=5)
 
-#media_energia_label = tk.Label(janela, text="Média Energia: N/A", font=("Arial", 10))
-#media_energia_label.grid(row=8, column=0, padx=10, pady=5)
-
+#label para exibir a média móvel da potência aparente (essa é calculada) na tela do analisador de consumo energetico em tempo real
 media_potencia_aparente_label = tk.Label(janela, text="Média Potência Aparente: N/A", font=("Arial", 10))
 media_potencia_aparente_label.grid(row=7, column=0, padx=10, pady=5)
 
+#label para exibir a média móvel da potência reativa (essa é calculada) na tela do analisador de consumo energetico em tempo real
 media_potencia_reativa_label = tk.Label(janela, text="Média Potência Reativa: N/A", font=("Arial", 10))
 media_potencia_reativa_label.grid(row=8, column=0, padx=10, pady=5)
 
-# Label para exibir o rendimento
+#label para exibir o rendimento (esse é calculado) na tela do analisador de consumo energetico em tempo real
 rendimento_label = tk.Label(janela, text="Rendimento: N/A", font=("Arial", 10))
 rendimento_label.grid(row=9, column=0, padx=10, pady=5)
 
-# Label para exibir o erro absoluto de rendimento
+#label para exibir o erro absoluto do rendimento (esse é calculado) na tela do analisador de consumo energetico em tempo real
 erro_absoluto_rendimento_label = tk.Label(janela, text="Diferença Absoluta do Rendimento: N/A", font=("Arial", 10))
 erro_absoluto_rendimento_label.grid(row=10, column=0, padx=10, pady=5)
 
-# Label para exibir o erro relativo de rendimento
+#label para exibir o erro relativo do rendimento (esse é calculado) na tela do analisador de consumo energetico em tempo real
 erro_relativo_rendimento_label = tk.Label(janela, text="Porcentagem Relativa do Rendimento: N/A", font=("Arial", 10))
 erro_relativo_rendimento_label.grid(row=11, column=0, padx=10, pady=5)
 
-# Label para exibir o consumo mensal estimado
+#label para exibir o consumo mensal estimado na tela do analisador de consumo energetico em tempo real
 consumo_mensal_label = tk.Label(janela, text="Consumo Mensal Estimado: N/A", font=("Arial", 10))
 consumo_mensal_label.grid(row=12, column=0, padx=10, pady=5)
 
-# Label para exibir o erro absoluto de consumo mensal
+#label para exibir o erro absoluto de consumo mensal na tela do analisador de consumo energetico em tempo real
 erro_absoluto_consumo_label = tk.Label(janela, text="Diferença Absoluta do Consumo: N/A", font=("Arial", 10))
 erro_absoluto_consumo_label.grid(row=13, column=0, padx=10, pady=5)
 
-# Label para exibir o erro relativo de consumo mensal
+#label para exibir o erro relativo de consumo mensal na tela do analisador de consumo energetico em tempo real
 erro_relativo_consumo_label = tk.Label(janela, text="Porcentagem Relativa do Consumo: N/A", font=("Arial", 10))
 erro_relativo_consumo_label.grid(row=14, column=0, padx=10, pady=5)
 
-# Label para exibir o custo mensal estimado
+#label para exibir o custo mensal estimado na tela do analisador de consumo energetico em tempo real
 custo_mensal_label = tk.Label(janela, text="Custo Mensal Estimado: N/A", font=("Arial", 10))
 custo_mensal_label.grid(row=15, column=0, padx=10, pady=5)
 
-# Adicionar o cálculo de energia na interface Tkinter
+#label para exibir o cálculo de energia na tela do analisador de consumo energetico em tempo real
 energia_label = tk.Label(janela, text="Energia Consumida: N/A", font=("Arial", 10))
 energia_label.grid(row=16, column=0, padx=10, pady=5)
 
-# Adicionar o cálculo de custo na interface Tkinter
+#label para exibir o cálculo do custo na tela do analisador de consumo energetico em tempo real
 custo_teste_label = tk.Label(janela, text="Custo Total da Energia: N/A", font=("Arial", 10))
 custo_teste_label.grid(row=17, column=0, padx=10, pady=5)
 
-# Campos para definir as variáveis ajustáveis (usando Grid)
+#label para exibir a variáveis editada (usando Grid) - tarifa de energia na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Tarifa Energia (R$/kWh):").grid(row=1, column=9, padx=10, pady=5)
 tarifa_entry = tk.Entry(janela)
 tarifa_entry.insert(0, str(tarifa_energia))
 tarifa_entry.grid(row=1, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - tarifa de energia na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Potência Nominal (W):").grid(row=2, column=9, padx=10, pady=5)
 potencia_entry = tk.Entry(janela)
 potencia_entry.insert(0, str(potencia_nominal))
 potencia_entry.grid(row=2, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - tensão nominal na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Tensão Nominal (V):").grid(row=3, column=9, padx=10, pady=5)
 tensao_entry = tk.Entry(janela)
 tensao_entry.insert(0, str(tensao_nominal))
 tensao_entry.grid(row=3, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - rendimento nominal na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Rendimento Nominal (%):").grid(row=4, column=9, padx=10, pady=5)
 rendimento_entry = tk.Entry(janela)
 rendimento_entry.insert(0, str(rendimento_nominal))
 rendimento_entry.grid(row=4, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - consumo mensal nominal de energia na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Consumo Mensal Nominal (kWh):").grid(row=5, column=9, padx=10, pady=5)
 consumo_entry = tk.Entry(janela)
 consumo_entry.insert(0, str(consumo_mensal_nominal))
 consumo_entry.grid(row=5, column=10, padx=10, pady=5)
 
-# Campos para definir os limites de histerese
+#label para exibir a variáveis editada (usando Grid) - limite inferior do consumo mensal de energia na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Inferior do Consumo Mensal Nominal(kWh):").grid(row=6, column=9, padx=10, pady=5)
 limite_inferior_entry = tk.Entry(janela)
 limite_inferior_entry.insert(0, str(limite_inferior_consumo))
 limite_inferior_entry.grid(row=6, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - limite superior do consumo mensal na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Superior do Consumo Mensal Nominal (kWh):").grid(row=7, column=9, padx=10, pady=5)
 limite_superior_entry = tk.Entry(janela)
 limite_superior_entry.insert(0, str(limite_superior_consumo))
 limite_superior_entry.grid(row=7, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - limite inferior do sensor de temperatura 1 na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Inferior Sensor Temperatura 1 (ºC):").grid(row=8, column=9, padx=10, pady=5)
 limite_inferior_temperatura_sensor_1_entry = tk.Entry(janela)
 limite_inferior_temperatura_sensor_1_entry.insert(0, str(limite_inferior_temperatura_sensor_1))
 limite_inferior_temperatura_sensor_1_entry.grid(row=8, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - limite superior do sensor de temperatura 1 na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Superior Sensor Temperatura 1 (ºC):").grid(row=9, column=9, padx=10, pady=5)
 limite_superior_temperatura_sensor_1_entry = tk.Entry(janela)
 limite_superior_temperatura_sensor_1_entry.insert(0, str(limite_superior_temperatura_sensor_1))
 limite_superior_temperatura_sensor_1_entry.grid(row=9, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - limite inferior do sensor de temperatura 2 na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Inferior Sensor Temperatura 2 (ºC):").grid(row=10, column=9, padx=10, pady=5)
 limite_inferior_temperatura_sensor_2_entry = tk.Entry(janela)
 limite_inferior_temperatura_sensor_2_entry.insert(0, str(limite_inferior_temperatura_sensor_2))
 limite_inferior_temperatura_sensor_2_entry.grid(row=10, column=10, padx=10, pady=5)
 
+#label para exibir a variáveis editada (usando Grid) - limite superior do sensor de temperatura 2 na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Superior Sensor Temperatura 2 (ºC):").grid(row=11, column=9, padx=10, pady=5)
 limite_superior_temperatura_sensor_2_entry = tk.Entry(janela)
 limite_superior_temperatura_sensor_2_entry.insert(0, str(limite_superior_temperatura_sensor_2))
 limite_superior_temperatura_sensor_2_entry.grid(row=11, column=10, padx=10, pady=5)
 
-# Limite inferior do rendimento (%)
+#label para exibir a variáveis editada (usando Grid) - limite inferior do rendimento na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Inferior do Rendimento (%):").grid(row=12, column=9, padx=10, pady=5)
 limite_inferior_rendimento_entry = tk.Entry(janela)
 limite_inferior_rendimento_entry.insert(0, str(limite_inferior_rendimento))
 limite_inferior_rendimento_entry.grid(row=12, column=10, padx=10, pady=5)
 
-# Limite superior do rendimento (%)
+#label para exibir a variáveis editada (usando Grid) - limite superior do rendimento na tela do analisador de consumo energetico em tempo real
 tk.Label(janela, text="Limite Superior do Rendimento (%):").grid(row=13, column=9, padx=10, pady=5)
 limite_superior_rendimento_entry = tk.Entry(janela)
 limite_superior_rendimento_entry.insert(0, str(limite_superior_rendimento))
 limite_superior_rendimento_entry.grid(row=13, column=10, padx=10, pady=5)
 
-# Botão para atualizar as variáveis
+#label para exibir o botão "Atualizar Variaveis" na tela do analisador de consumo energetico em tempo real
 atualizar_button = tk.Button(janela, text="Atualizar Variáveis", command=atualizar_variaveis)
 atualizar_button.grid(row=0, column=9, padx=10, pady=10)
 
-# Status da atualização
+#label para exibir o status da atualização na tela do analisador de consumo energetico em tempo real
 status_label = tk.Label(janela, text="", font=("Arial", 10))
 #status_label.grid(row=0, column=10, padx=10, pady=5)
 status_label.grid(row=17, column=13, padx=10, pady=5)
 
-# Status da atualização Alertas
+#label para exibir o status da atualização de alertas tela do analisador de consumo energetico em tempo real
 status_label_alerta = tk.Label(janela, text="", font=("Arial", 10))
 #status_label_alerta.grid(row=0, column=14, padx=10, pady=5)
 status_label_alerta.grid(row=12, column=13, padx=10, pady=5)
 
-# Status da atualização Alertas Sensor de temperatura 1
+#label para exibir o status da atualização de alertas do sensor de temperatura 1 na tela do analisador de consumo energetico em tempo real
 status_label_temperatura_sensor_1 = tk.Label(janela, text="", font=("Arial", 10))
 #status_label_temperatura_sensor_1.grid(row=1, column=14, padx=10, pady=5)
 status_label_temperatura_sensor_1.grid(row=13, column=13, padx=10, pady=5)
 
-# Status da atualização Alertas Sensor de temperatura 2
+#label para exibir o status da atualização de alertas do sensor de temperatura 2 na tela do analisador de consumo energetico em tempo real
 status_label_temperatura_sensor_2 = tk.Label(janela, text="", font=("Arial", 10))
 #status_label_temperatura_sensor_2.grid(row=2, column=14, padx=10, pady=5)
 status_label_temperatura_sensor_2.grid(row=14, column=13, padx=10, pady=5)
 
-# Status da atualização Alertas Rendimento
+#label para exibir o status da atualização de alertas do rendimento na tela do analisador de consumo energetico em tempo real
 status_label_rendimento = tk.Label(janela, text="", font=("Arial", 10))
 #status_label_rendimento.grid(row=3, column=14, padx=10, pady=5)
 status_label_rendimento.grid(row=15, column=13, padx=10, pady=5)
 
-# Status da atualização Alertas Sensor de Porta
+#label para exibir o status da atualização de alertas do sensor de porta na tela do analisador de consumo energetico em tempo real
 sensor_porta_label = tk.Label(janela, text="", font=("Arial", 10))
 #sensor_porta_label.grid(row=4, column=14, padx=10, pady=5)
 sensor_porta_label.grid(row=16, column=13, padx=10, pady=5)
 
 ##############################################################################################################
-# Criar labels para exibir os horários programados
+#label para exibir o dia programado programado do teste personalizado (na tela do analisador de consumo energetico em tempo real)
 dia_programado_label = tk.Label(janela, text="Dia Programado: N/A", font=("Arial", 10))
 dia_programado_label.grid(row=4, column=13, padx=10, pady=5)
 
+#label para exibir o horário de início do teste personalizado (na tela do analisador de consumo energetico em tempo real)
 horario_inicio_programado_label = tk.Label(janela, text="Horário de Início: N/A", font=("Arial", 10))
 horario_inicio_programado_label.grid(row=5, column=13, padx=10, pady=5)
 
+#label para exibir o horário de fim do teste personalizado (na tela do analisador de consumo energetico em tempo real)
 horario_fim_programado_label = tk.Label(janela, text="Horário de Fim: N/A", font=("Arial", 10))
 horario_fim_programado_label.grid(row=6, column=13, padx=10, pady=5)
 
-# Criar um label para mostrar o tempo restante para o início do teste
+#label para exibir o horário de tempo restante do teste personalizado (na tela do analisador de consumo energetico em tempo real)
 tempo_restante_label = tk.Label(janela, text="Tempo Restante: N/A", font=("Arial", 10))
 tempo_restante_label.grid(row=7, column=13, padx=10, pady=5)
 ##############################################################################################################
@@ -1410,23 +1414,17 @@ tempo_restante_label.grid(row=7, column=13, padx=10, pady=5)
 #sensor_porta_label = tk.Label(janela, text="Sensor Porta: N/A", font=("Arial", 10))
 #sensor_porta_label.grid(row=20, column=0, padx=10, pady=5)
 
+janela = tk.Tk() #cria a janela da Tela de Monitor de Consumo Energético
+janela.title("Tela de Monitor de Consumo Energético") #nome da tela
 
-# Configuração da interface gráfica
-janela = tk.Tk()
-janela.title("Tela de Monitor de Consumo Energético")
-
-# Label para exibir os resultados
+#label para exibir os resultados
 label_resultados = tk.Label(janela, text="Aguardando dados...", font=("Arial", 14), justify="left")
 label_resultados.pack(pady=20)
 
-# Inicia o monitoramento do arquivo
-janela.after(1000, monitorar_arquivo)
+janela.after(1000, monitorar_arquivo) #inicia o monitoramento do arquivo a cada 1 s
+ 
+atualizar_tempo_decorrido() #atualizar o tempo decorrido
 
-# Atualizar o tempo decorrido
-atualizar_tempo_decorrido()
+janela.mainloop() #inicia a tela principal
 
-# Iniciar a interface
-janela.mainloop()
-
-# Fechar a conexão serial ao encerrar a aplicação
-arduino.close()
+arduino.close() #eechar a conexão serial ao encerrar a aplicação
