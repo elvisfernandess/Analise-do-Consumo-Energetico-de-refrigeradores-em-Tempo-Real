@@ -47,7 +47,8 @@ void loop() {
   float voltage = pzem.voltage(); //pega a tensão medida do sensor de energia
   float current = pzem.current() -0.04; //pega a corrente medida do sensor de energia e calibra
   //float power = pzem.power() - 0.40;
-  float power = voltage*current; //calcula a potencia ativa do sensor de energia
+  //float power = voltage*current; //calcula a potencia ativa do sensor de energia
+  float power = (voltage*current)+0.64; //calcula a potencia ativa do sensor de energia
   float frequency = pzem.frequency(); //pega a frequencia medida do sensor de energia
   float pf = pzem.pf() - 0.05; //pega o fator de potencia do sensor de energia e calibra
 
